@@ -283,7 +283,7 @@ export default class MarsScene extends Phaser.Scene {
     // Advance the day timer
     store.tickDayTimer(dt)
 
-    if (isPoweredOff || isControlsLocked || dayPhase === 'ended') {
+    if (isPoweredOff || isControlsLocked || dayPhase === 'ended' || dayPhase === 'morning') {
       this.roverBody.setVelocity(0, 0)
       this.dustEmitter.stop()
       store.setIsDriving(false)
@@ -358,10 +358,10 @@ export default class MarsScene extends Phaser.Scene {
       battery += BATTERY_RECHARGE_BASE * dt
     }
 
-    battery = Phaser.Math.Clamp(battery, 0, 100)
+    battery = Phaser.Math.Clamp(battery, 0, store.batteryCapacity)
     store.setBattery(battery)
 
-    if (battery <= 0) {
+    if (battery <= 0 && !isPoweredOff) {
       store.setIsPoweredOff(true)
     }
 

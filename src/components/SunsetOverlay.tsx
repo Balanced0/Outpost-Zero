@@ -6,7 +6,7 @@ export default function SunsetOverlay() {
   const dayPhase = useGameStore((s) => s.dayPhase)
 
   // Only render when entering sunset or when day ended
-  if (timeLeft > SUNSET_WARN_SEC && dayPhase !== 'ended') {
+  if (dayPhase === 'morning' || (timeLeft > SUNSET_WARN_SEC && dayPhase !== 'ended')) {
     return null
   }
 

@@ -7,8 +7,15 @@ import {
   DAY_DURATION_SEC,
   SUNSET_WARN_SEC,
   MORNING_DURATION_SEC,
+  DEFAULT_POWER_SPLIT,
+  BASE_ROVER_CAPACITY,
+  ROVER_CAPACITY_PER_POINT,
+  INITIAL_AIR,
+  AIR_DAILY_DROP,
+  AIR_REFILL_MULTIPLIER,
 } from '../config/gameConfig'
 import { getRandomFact } from '../data/facts'
+import { rebalancePowerSplit, PowerSplit } from '../utils/powerRebalance'
 
 export { BASE_X, BASE_Y }
 
@@ -19,12 +26,17 @@ export interface DayEndResult {
   madeItHome: boolean
   distanceDriven: number
   batteryLeft: number
+  batteryCapacity: number
+  airBefore: number
+  airAfter: number
+  powerSplit: PowerSplit
   fact: string
 }
 
 interface GameState {
   // Rover & Controls
-  battery: number // 0-100
+  battery: number // current battery units (0 to batteryCapacity)
+  batteryCapacity: number // max battery capacity for today
   roverX: number
   roverY: number
   isDriving: boolean
@@ -43,25 +55,41 @@ interface GameState {
   dayEndResult: DayEndResult | null
   isMissionComplete: boolean
 
+  // Power Planning (Stage 3)
+  powerSplit: PowerSplit
+  shieldToday: number // shield strength today (0-100)
+  nextDayStartBatteryRatio: number // 1.0 (home safe) or 0.5 (stranded)
+
+  // Base Survival Meters (Stage 3)
+  air: number // 0-100
+  airBeforeToday: number // snapshot at start of day
+  isAirDepleted: boolean // true when air hits 0 (Mission Paused)
+
   // Actions
   setBattery: (v: number) => void
   setRoverPos: (x: number, y: number) => void
   setIsDriving: (v: boolean) => void
   setIsPoweredOff: (v: boolean) => void
   setJoystick: (dx: number, dy: number) => void
+  setPowerAlloc: (key: keyof PowerSplit, value: number) => void
+  startDrivingDay: () => void
   tickDayTimer: (dt: number) => void
   addDistanceDriven: (meters: number) => void
   startNextDay: () => void
   resetMission: () => void
 }
 
+const initialCapacity =
+  BASE_ROVER_CAPACITY + DEFAULT_POWER_SPLIT.rover * ROVER_CAPACITY_PER_POINT
+
 export const useGameStore = create<GameState>((set, get) => ({
-  battery: 100,
+  battery: initialCapacity,
+  batteryCapacity: initialCapacity,
   roverX: BASE_X,
   roverY: BASE_Y,
   isDriving: false,
   isPoweredOff: false,
-  isControlsLocked: false,
+  isControlsLocked: true, // Locked during morning screen
   joystickDx: 0,
   joystickDy: 0,
 
@@ -74,11 +102,46 @@ export const useGameStore = create<GameState>((set, get) => ({
   dayEndResult: null,
   isMissionComplete: false,
 
-  setBattery: (v) => set({ battery: Math.max(0, Math.min(100, v)) }),
+  powerSplit: { ...DEFAULT_POWER_SPLIT },
+  shieldToday: DEFAULT_POWER_SPLIT.shield,
+  nextDayStartBatteryRatio: 1.0,
+
+  air: INITIAL_AIR,
+  airBeforeToday: INITIAL_AIR,
+  isAirDepleted: false,
+
+  setBattery: (v) =>
+    set((state) => ({
+      battery: Math.max(0, Math.min(state.batteryCapacity, v)),
+    })),
   setRoverPos: (x, y) => set({ roverX: x, roverY: y }),
   setIsDriving: (v) => set({ isDriving: v }),
   setIsPoweredOff: (v) => set({ isPoweredOff: v }),
   setJoystick: (dx, dy) => set({ joystickDx: dx, joystickDy: dy }),
+
+  setPowerAlloc: (key, value) => {
+    const current = get().powerSplit
+    const newSplit = rebalancePowerSplit(current, key, value)
+    set({ powerSplit: newSplit })
+  },
+
+  startDrivingDay: () => {
+    const state = get()
+    const capacity =
+      BASE_ROVER_CAPACITY + state.powerSplit.rover * ROVER_CAPACITY_PER_POINT
+    const startBattery = capacity * state.nextDayStartBatteryRatio
+
+    set({
+      batteryCapacity: capacity,
+      battery: startBattery,
+      shieldToday: state.powerSplit.shield,
+      airBeforeToday: state.air,
+      dayPhase: 'daytime',
+      isControlsLocked: false,
+      isDriving: false,
+      isPoweredOff: false,
+    })
+  },
 
   addDistanceDriven: (meters) =>
     set((state) => ({
@@ -87,7 +150,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   tickDayTimer: (dt) => {
     const state = get()
-    if (state.dayPhase === 'ended' || state.isMissionComplete) return
+    // Timer only ticks while actively exploring in daytime or sunset
+    if (state.dayPhase !== 'daytime' && state.dayPhase !== 'sunset') return
+    if (state.isMissionComplete || state.isAirDepleted) return
 
     const newTime = Math.max(0, state.timeLeft - dt)
 
@@ -98,11 +163,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       const dist = Math.sqrt(dx * dx + dy * dy)
       const madeItHome = dist <= BASE_SAFE_DISTANCE
 
+      // Air calculation
+      const airRefill = state.powerSplit.air * AIR_REFILL_MULTIPLIER
+      const airBefore = state.air
+      const airAfter = Math.max(0, Math.min(100, airBefore - AIR_DAILY_DROP + airRefill))
+      const airDepleted = airAfter <= 0
+
       const result: DayEndResult = {
         day: state.day,
         madeItHome,
         distanceDriven: Math.round(state.distanceDrivenToday),
         batteryLeft: Math.round(state.battery),
+        batteryCapacity: Math.round(state.batteryCapacity),
+        airBefore: Math.round(airBefore),
+        airAfter: Math.round(airAfter),
+        powerSplit: { ...state.powerSplit },
         fact: getRandomFact(),
       }
 
@@ -111,6 +186,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         dayPhase: 'ended',
         isControlsLocked: true,
         isDriving: false,
+        air: airAfter,
+        isAirDepleted: airDepleted,
+        nextDayStartBatteryRatio: madeItHome ? 1.0 : 0.5,
         dayEndResult: result,
       })
       return
@@ -121,7 +199,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (newTime <= SUNSET_WARN_SEC) {
       phase = 'sunset'
     } else if (newTime >= state.dayDuration - MORNING_DURATION_SEC) {
-      phase = 'morning'
+      phase = 'daytime'
     }
 
     set({ timeLeft: newTime, dayPhase: phase })
@@ -129,8 +207,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   startNextDay: () => {
     const state = get()
+    if (state.isAirDepleted) return
+
     if (state.day >= state.maxDays) {
-      // Mission finished after day 20!
+      // Mission finished after day 20
       set({
         isMissionComplete: true,
         dayEndResult: null,
@@ -141,39 +221,46 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
 
     const nextDay = state.day + 1
-    // Safe at home = 100% battery, stranded overnight = 50% battery
-    const nextBattery = state.dayEndResult?.madeItHome ? 100 : 50
 
     set({
       day: nextDay,
       timeLeft: state.dayDuration,
-      dayPhase: 'morning',
-      isControlsLocked: false,
+      dayPhase: 'morning', // Go to morning power screen first
+      isControlsLocked: true,
       isDriving: false,
       isPoweredOff: false,
       distanceDrivenToday: 0,
       dayEndResult: null,
-      battery: nextBattery,
       roverX: BASE_X,
       roverY: BASE_Y,
+      // Note: powerSplit is preserved from yesterday!
     })
 
     window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
   },
 
   resetMission: () => {
-    const state = get()
+    const defaultCapacity =
+      BASE_ROVER_CAPACITY + DEFAULT_POWER_SPLIT.rover * ROVER_CAPACITY_PER_POINT
+
     set({
       day: 1,
-      timeLeft: state.dayDuration,
+      timeLeft: DAY_DURATION_SEC,
       dayPhase: 'morning',
-      isControlsLocked: false,
+      isControlsLocked: true,
       isDriving: false,
       isPoweredOff: false,
       distanceDrivenToday: 0,
       dayEndResult: null,
       isMissionComplete: false,
-      battery: 100,
+      isAirDepleted: false,
+      air: INITIAL_AIR,
+      airBeforeToday: INITIAL_AIR,
+      powerSplit: { ...DEFAULT_POWER_SPLIT },
+      shieldToday: DEFAULT_POWER_SPLIT.shield,
+      nextDayStartBatteryRatio: 1.0,
+      batteryCapacity: defaultCapacity,
+      battery: defaultCapacity,
       roverX: BASE_X,
       roverY: BASE_Y,
     })
