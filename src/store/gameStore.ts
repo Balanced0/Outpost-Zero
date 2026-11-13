@@ -25,7 +25,10 @@ import {
   DiscoveryType,
   SCAN_DURATION_SEC,
   SCAN_PROXIMITY_RADIUS,
+  CALL_EARTH_BATTERY_COST,
 } from '../config/gameConfig'
+import { PlanetId, PLANETS } from '../config/planets'
+import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 import { getRandomFact } from '../data/facts'
 import {
   getStormForDay,
@@ -34,7 +37,7 @@ import {
   SpaceWeatherSource,
 } from '../data/stormSource'
 import { DonkiPayload } from '../utils/donkiProcessor'
-import { rebalancePowerSplit, PowerSplit } from '../utils/powerRebalance'
+import { rebalancePowerSplit, getDefaultPowerSplit, PowerSplit } from '../utils/powerRebalance'
 import { generateDiscoverySpots, DiscoverySpot } from '../data/discoverySpots'
 import { selectPhotoForDiscovery, resetPhotoHistory, MarsPhoto } from '../utils/photoSelector'
 
@@ -42,6 +45,35 @@ export { BASE_X, BASE_Y }
 
 export type DayPhase = 'morning' | 'daytime' | 'sunset' | 'ended'
 export type StormState = 'idle' | 'warning' | 'active' | 'passed'
+export type TutorialStep = 'day1_sliders' | 'day2_driving' | 'day3_storm' | null
+export type CallEarthState = 'idle' | 'calling' | 'received'
+
+const STORAGE_KEY = 'outpost_zero_save_settings'
+
+export interface SavedSettings {
+  commanderName?: string
+  planet?: PlanetId
+  difficulty?: DifficultyId
+  skipTutorial?: boolean
+}
+
+export function loadSavedSettings(): SavedSettings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (err) {
+    console.warn('Unable to read localStorage:', err)
+  }
+  return {}
+}
+
+export function saveSettings(settings: SavedSettings) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+  } catch (err) {
+    console.warn('Unable to save to localStorage:', err)
+  }
+}
 
 export interface ActiveScan {
   spotId: string
@@ -83,6 +115,14 @@ export interface DayEndResult {
 }
 
 interface GameState {
+  // Stage 7A: Start Menu & Planet / Difficulty Mode
+  isGameStarted: boolean
+  commanderName: string
+  planet: PlanetId
+  difficulty: DifficultyId
+  skipTutorial: boolean
+  powerBudget: number
+
   // Rover & Controls
   battery: number
   batteryCapacity: number
@@ -146,7 +186,29 @@ interface GameState {
   scanError: string | null
   activeDiscovery: ActiveDiscovery | null
 
+  // Stage 7A: Tutorial (Days 1 to 3)
+  tutorialStep: TutorialStep
+  hasMovedSliderDay1: boolean
+
+  // Stage 7A: Call Earth (Comms Delay)
+  callEarthState: CallEarthState
+  callEarthCountdown: number
+  callEarthDelayTotal: number
+  callEarthMessage: string | null
+
   // Actions
+  launchMission: (settings: {
+    commanderName: string
+    planet: PlanetId
+    difficulty: DifficultyId
+    skipTutorial: boolean
+  }) => void
+  returnToMenu: () => void
+  dismissTutorial: () => void
+
+  startCallEarth: () => void
+  dismissCallEarthReply: () => void
+
   setBattery: (v: number) => void
   setRoverPos: (x: number, y: number) => void
   setIsDriving: (v: boolean) => void
@@ -168,14 +230,30 @@ interface GameState {
   closeDiscoveryPopup: () => void
 }
 
+const saved = loadSavedSettings()
+const initialPlanet: PlanetId = saved.planet || 'mars'
+const initialDifficulty: DifficultyId = saved.difficulty || 'commander'
+const initialCommanderName: string = saved.commanderName || 'Commander'
+const initialSkipTutorial: boolean = saved.skipTutorial ?? false
+const initialBudget = DIFFICULTIES[initialDifficulty].powerBudget
+const initialSplit = getDefaultPowerSplit(initialBudget)
 const initialCapacity =
-  BASE_ROVER_CAPACITY + DEFAULT_POWER_SPLIT.rover * ROVER_CAPACITY_PER_POINT
+  BASE_ROVER_CAPACITY + initialSplit.rover * ROVER_CAPACITY_PER_POINT
 
 export const useGameStore = create<GameState>((set, get) => {
   const initialStorm = getStormForDay(1)
   const initialSpots = generateDiscoverySpots(42)
 
   return {
+    // Menu & Configuration
+    isGameStarted: false,
+    commanderName: initialCommanderName,
+    planet: initialPlanet,
+    difficulty: initialDifficulty,
+    skipTutorial: initialSkipTutorial,
+    powerBudget: initialBudget,
+
+    // Rover & Controls
     battery: initialCapacity,
     batteryCapacity: initialCapacity,
     roverX: BASE_X,
@@ -195,8 +273,8 @@ export const useGameStore = create<GameState>((set, get) => {
     dayEndResult: null,
     isMissionComplete: false,
 
-    powerSplit: { ...DEFAULT_POWER_SPLIT },
-    shieldToday: DEFAULT_POWER_SPLIT.shield,
+    powerSplit: { ...initialSplit },
+    shieldToday: initialSplit.shield,
     nextDayStartBatteryRatio: 1.0,
 
     air: INITIAL_AIR,
@@ -220,10 +298,10 @@ export const useGameStore = create<GameState>((set, get) => {
     whySentenceToday: '',
 
     missionSpaceWeather: null,
-    isLoadingSpaceWeather: true,
-    spaceWeatherSource: 'saved',
+    isLoadingSpaceWeather: false,
+    spaceWeatherSource: 'simulated',
 
-    // Stage 6 Discoveries initial state
+    // Stage 6 Discoveries
     discoverySpots: initialSpots,
     totalDiscoveryPoints: 0,
     discoveryPointsToday: 0,
@@ -233,110 +311,153 @@ export const useGameStore = create<GameState>((set, get) => {
     scanError: null,
     activeDiscovery: null,
 
+    // Stage 7A: Tutorial & Comms
+    tutorialStep: null,
+    hasMovedSliderDay1: false,
+    callEarthState: 'idle',
+    callEarthCountdown: 0,
+    callEarthDelayTotal: 0,
+    callEarthMessage: null,
+
+    // Launch mission from start menu
+    launchMission: ({ commanderName, planet, difficulty, skipTutorial }) => {
+      saveSettings({ commanderName, planet, difficulty, skipTutorial })
+      const diffConfig = DIFFICULTIES[difficulty]
+      const powerBudget = diffConfig.powerBudget
+      const split = getDefaultPowerSplit(powerBudget)
+      const cap = BASE_ROVER_CAPACITY + split.rover * ROVER_CAPACITY_PER_POINT
+      const tutStep: TutorialStep = skipTutorial ? null : 'day1_sliders'
+
+      set({
+        isGameStarted: true,
+        commanderName: commanderName.trim() || 'Commander',
+        planet,
+        difficulty,
+        skipTutorial,
+        powerBudget,
+        powerSplit: split,
+        shieldToday: split.shield,
+        battery: cap,
+        batteryCapacity: cap,
+        day: 1,
+        timeLeft: DAY_DURATION_SEC,
+        dayPhase: 'morning',
+        isControlsLocked: true,
+        tutorialStep: tutStep,
+        hasMovedSliderDay1: false,
+        callEarthState: 'idle',
+        callEarthCountdown: 0,
+        callEarthMessage: null,
+        totalDiscoveryPoints: 0,
+        discoveryPointsToday: 0,
+        discoveriesFoundToday: 0,
+        isMissionComplete: false,
+        isAirDepleted: false,
+        isCrewDepleted: false,
+        air: INITIAL_AIR,
+        airBeforeToday: INITIAL_AIR,
+        crewHealth: INITIAL_CREW_HEALTH,
+        crewHealthBeforeToday: INITIAL_CREW_HEALTH,
+        crewDamageToday: 0,
+        roverStormPenaltyNextDay: false,
+        roverPenaltyAppliedToday: false,
+      })
+
+      // Notify Phaser scene about planet selection
+      window.dispatchEvent(new CustomEvent('planet-changed', { detail: { planet } }))
+      window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
+
+      // Fetch space weather from NASA DONKI
+      get().loadSpaceWeather()
+    },
+
+    returnToMenu: () => {
+      set({
+        isGameStarted: false,
+        dayPhase: 'morning',
+        isControlsLocked: true,
+        callEarthState: 'idle',
+        callEarthMessage: null,
+        activeDiscovery: null,
+        activeScan: null,
+        tutorialStep: null,
+      })
+    },
+
+    dismissTutorial: () => {
+      set({
+        tutorialStep: null,
+        isControlsLocked: false,
+      })
+    },
+
+    startCallEarth: () => {
+      const state = get()
+      if (state.dayPhase !== 'daytime' && state.dayPhase !== 'sunset') return
+      if (state.callEarthState === 'calling') return
+      if (state.battery < CALL_EARTH_BATTERY_COST) return
+
+      const planetConfig = PLANETS[state.planet]
+      const diffConfig = DIFFICULTIES[state.difficulty]
+      const delay = Math.max(
+        1,
+        Math.round(planetConfig.gameDelaySec * diffConfig.commsDelayMultiplier)
+      )
+
+      set({
+        battery: Math.max(0, state.battery - CALL_EARTH_BATTERY_COST),
+        callEarthState: 'calling',
+        callEarthCountdown: delay,
+        callEarthDelayTotal: delay,
+      })
+    },
+
+    dismissCallEarthReply: () => {
+      set({
+        callEarthState: 'idle',
+        callEarthMessage: null,
+      })
+    },
+
     loadSpaceWeather: async () => {
       set({ isLoadingSpaceWeather: true })
       try {
         const payload = await fetchMissionSpaceWeather()
-        const storm = getStormForDay(get().day, payload)
+        const day1Storm = getStormForDay(1, payload)
         set({
           missionSpaceWeather: payload,
           spaceWeatherSource: payload.source,
-          stormLevelToday: storm.level,
-          stormDateToday: storm.date,
-          stormEventsToday: storm.events,
+          stormLevelToday: day1Storm.level,
+          stormDateToday: day1Storm.date,
+          stormEventsToday: day1Storm.events,
           isLoadingSpaceWeather: false,
         })
       } catch (err) {
-        console.error('Error loading space weather:', err)
-        const fallbackStorm = getStormForDay(get().day)
+        console.warn('Fallback to local space weather profile:', err)
+        const day1Storm = getStormForDay(1)
         set({
-          spaceWeatherSource: 'saved',
-          stormLevelToday: fallbackStorm.level,
-          stormDateToday: fallbackStorm.date,
-          stormEventsToday: fallbackStorm.events,
+          spaceWeatherSource: 'simulated',
+          stormLevelToday: day1Storm.level,
+          stormDateToday: day1Storm.date,
+          stormEventsToday: day1Storm.events,
           isLoadingSpaceWeather: false,
         })
       }
     },
 
-    setBattery: (v) =>
-      set((state) => ({
-        battery: Math.max(0, Math.min(state.batteryCapacity, v)),
-      })),
+    setBattery: (v) => set({ battery: v }),
     setRoverPos: (x, y) => set({ roverX: x, roverY: y }),
     setIsDriving: (v) => set({ isDriving: v }),
     setIsPoweredOff: (v) => set({ isPoweredOff: v }),
     setJoystick: (dx, dy) => set({ joystickDx: dx, joystickDy: dy }),
 
-    setPowerAlloc: (key, value) => {
-      const current = get().powerSplit
-      const newSplit = rebalancePowerSplit(current, key, value)
-      set({ powerSplit: newSplit })
-    },
-
-    startDrivingDay: () => {
-      const state = get()
-
-      const rawCapacity =
-        BASE_ROVER_CAPACITY + state.powerSplit.rover * ROVER_CAPACITY_PER_POINT
-      const penalty = state.roverStormPenaltyNextDay ? ROVER_STORM_PENALTY : 0
-      const capacity = Math.max(20, rawCapacity - penalty)
-      const startBattery = capacity * state.nextDayStartBatteryRatio
-
-      let stormStartTime = -1
-      let stormState: StormState = 'passed'
-
-      if (state.stormLevelToday !== 'none') {
-        const minRatio = STORM_START_MIN_RATIO
-        const maxRatio = STORM_START_MAX_RATIO
-        const randomFraction = minRatio + Math.random() * (maxRatio - minRatio)
-        stormStartTime = state.dayDuration * (1 - randomFraction)
-        stormState = 'idle'
-      }
-
-      set({
-        batteryCapacity: capacity,
-        battery: startBattery,
-        shieldToday: state.powerSplit.shield,
-        airBeforeToday: state.air,
-        crewHealthBeforeToday: state.crewHealth,
-        crewDamageToday: 0,
-        roverPenaltyAppliedToday: state.roverStormPenaltyNextDay,
-        roverStormPenaltyNextDay: false,
-        roverCaughtExposedToday: false,
-        whySentenceToday: '',
-        stormStartTime,
-        stormState,
-        stormCountdown: STORM_WARNING_SEC,
-        isRoverSheltered: true,
-        dayPhase: 'daytime',
-        isControlsLocked: false,
-        isDriving: false,
-        isPoweredOff: false,
-        activeScan: null,
-        scanError: null,
-        activeDiscovery: null,
-      })
-    },
-
-    addDistanceDriven: (meters) =>
-      set((state) => ({
-        distanceDrivenToday: state.distanceDrivenToday + meters,
-      })),
-
-    // --- Stage 6: Discovery Scanning System ---
     setNearbySpot: (spot) => set({ nearbySpot: spot }),
 
     startScan: () => {
       const state = get()
-      if (state.isPoweredOff || state.isControlsLocked || state.activeScan || !state.nearbySpot) {
-        return
-      }
-
       const spot = state.nearbySpot
-      if (spot.collected) return
+      if (!spot || spot.collected || state.activeScan) return
 
-      // Battery cost check
       if (state.battery < spot.batteryCost) {
         set({ scanError: 'Not enough battery to scan' })
         setTimeout(() => {
@@ -372,7 +493,7 @@ export const useGameStore = create<GameState>((set, get) => {
         return
       }
 
-      // Check proximity (if rover moved or drifted away)
+      // Check proximity
       const spot = state.discoverySpots.find((s) => s.id === state.activeScan?.spotId)
       if (!spot || spot.collected) {
         set({ activeScan: null })
@@ -428,16 +549,126 @@ export const useGameStore = create<GameState>((set, get) => {
     closeDiscoveryPopup: () => {
       set({
         activeDiscovery: null,
-        isControlsLocked: false, // Resume controls and timer!
+        isControlsLocked: false,
       })
+    },
+
+    setPowerAlloc: (key, value) => {
+      const state = get()
+      if (state.dayPhase !== 'morning') return
+
+      const updated = rebalancePowerSplit(state.powerSplit, key, value, state.powerBudget)
+      const rawCap = BASE_ROVER_CAPACITY + updated.rover * ROVER_CAPACITY_PER_POINT
+      const finalCap = Math.max(
+        20,
+        Math.round(rawCap - (state.roverStormPenaltyNextDay ? ROVER_STORM_PENALTY : 0))
+      )
+
+      set({
+        powerSplit: updated,
+        shieldToday: updated.shield,
+        batteryCapacity: finalCap,
+        battery: Math.min(state.battery, finalCap),
+        hasMovedSliderDay1: true,
+      })
+    },
+
+    startDrivingDay: () => {
+      const state = get()
+      if (state.isAirDepleted || state.isCrewDepleted) return
+
+      let stormStartTime = -1
+      if (state.stormLevelToday !== 'none') {
+        const stormRatio =
+          STORM_START_MIN_RATIO +
+          Math.random() * (STORM_START_MAX_RATIO - STORM_START_MIN_RATIO)
+        stormStartTime = state.dayDuration * (1 - stormRatio)
+      }
+
+      // Check Day 2 tutorial (driving intro)
+      const day2Tut: TutorialStep =
+        !state.skipTutorial && state.day === 2 ? 'day2_driving' : null
+
+      set({
+        dayPhase: 'daytime',
+        isControlsLocked: day2Tut !== null,
+        tutorialStep: day2Tut,
+        stormStartTime,
+        stormState: 'idle',
+        stormCountdown: STORM_WARNING_SEC,
+        isRoverSheltered: true,
+        roverCaughtExposedToday: false,
+      })
+    },
+
+    addDistanceDriven: (meters) => {
+      set((state) => ({
+        distanceDrivenToday: state.distanceDrivenToday + meters,
+      }))
     },
 
     tickDayTimer: (dt) => {
       const state = get()
-      // Pause day timer while discovery celebration popup is open
-      if (state.activeDiscovery !== null) return
+      // Pause day timer while discovery celebration popup or tutorial modal is open
+      if (state.activeDiscovery !== null || state.tutorialStep === 'day2_driving') return
       if (state.dayPhase !== 'daytime' && state.dayPhase !== 'sunset') return
       if (state.isMissionComplete || state.isAirDepleted || state.isCrewDepleted) return
+
+      // --- Call Earth Comms Delay update ---
+      let nextCallState = state.callEarthState
+      let nextCallCountdown = state.callEarthCountdown
+      let nextCallMessage = state.callEarthMessage
+
+      if (state.callEarthState === 'calling') {
+        nextCallCountdown = Math.max(0, nextCallCountdown - dt)
+        if (nextCallCountdown <= 0) {
+          nextCallState = 'received'
+
+          // Generate response using existing game data
+          const uncollected = state.discoverySpots.filter((s) => !s.collected)
+          let nearestDesc = 'no uncollected spots remain'
+          if (uncollected.length > 0) {
+            let nearest = uncollected[0]
+            let minD = Infinity
+            for (const s of uncollected) {
+              const d = Math.hypot(s.x - state.roverX, s.y - state.roverY)
+              if (d < minD) {
+                minD = d
+                nearest = s
+              }
+            }
+            const angle = Math.atan2(nearest.y - state.roverY, nearest.x - state.roverX) * (180 / Math.PI)
+            const octants = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east']
+            const idx = Math.round(((angle + 360) % 360) / 45) % 8
+            const dir = octants[idx]
+            const typeLabel =
+              nearest.type === 'rock'
+                ? 'rock sample'
+                : nearest.type === 'riverbed'
+                ? 'ancient riverbed'
+                : 'ice deposit'
+            nearestDesc = `${typeLabel} is about ${Math.round(minD)} m to your ${dir}`
+          }
+
+          let stormAdvice = ''
+          if (state.stormLevelToday === 'none') {
+            stormAdvice = 'The Sun is calm today. Safe to explore!'
+          } else if (state.stormState === 'active' || state.stormState === 'passed') {
+            stormAdvice = '⚠️ Storm already started! This advice is late — you cannot wait for Earth!'
+          } else if (state.stormStartTime > 0) {
+            const timeUntil = Math.max(0, Math.ceil(state.timeLeft - state.stormStartTime))
+            if (timeUntil <= 0) {
+              stormAdvice = '⚠️ Storm already started! This advice is late — you cannot wait for Earth!'
+            } else {
+              stormAdvice = `A ${state.stormLevelToday} radiation burst arrives about ${timeUntil} seconds from now. Head toward base!`
+            }
+          } else {
+            stormAdvice = `Space weather forecast: ${state.stormLevelToday} storm expected today.`
+          }
+
+          nextCallMessage = `Mission Control: ${stormAdvice} The nearest ${nearestDesc}.`
+        }
+      }
 
       const newTime = Math.max(0, state.timeLeft - dt)
 
@@ -476,9 +707,10 @@ export const useGameStore = create<GameState>((set, get) => {
           }
 
           const stormPower = STORM_STRENGTHS[state.stormLevelToday]
-          const damage = Math.round(
-            Math.max(0, stormPower - state.shieldToday) * CREW_DAMAGE_MULTIPLIER
-          )
+          const diffConfig = DIFFICULTIES[state.difficulty]
+          const rawDamage = Math.max(0, stormPower - state.shieldToday)
+          const damage = Math.round(rawDamage * CREW_DAMAGE_MULTIPLIER * diffConfig.stormDamageMultiplier)
+
           nextCrewDamage = damage
           nextCrewHealth = Math.max(0, state.crewHealth - damage)
           if (nextCrewHealth <= 0) {
@@ -546,6 +778,8 @@ export const useGameStore = create<GameState>((set, get) => {
           isControlsLocked: true,
           isDriving: false,
           activeScan: null,
+          callEarthState: 'idle',
+          callEarthMessage: null,
           air: airAfter,
           isAirDepleted: airDepleted,
           crewHealth: finalCrewHealth,
@@ -577,6 +811,9 @@ export const useGameStore = create<GameState>((set, get) => {
         whySentenceToday: nextWhySentence,
         isCrewDepleted: isDepleted,
         isRoverSheltered: isSheltered,
+        callEarthState: nextCallState,
+        callEarthCountdown: nextCallCountdown,
+        callEarthMessage: nextCallMessage,
       })
     },
 
@@ -596,6 +833,8 @@ export const useGameStore = create<GameState>((set, get) => {
 
       const nextDay = state.day + 1
       const nextStorm = getStormForDay(nextDay, state.missionSpaceWeather)
+      const tutStep: TutorialStep =
+        !state.skipTutorial && nextDay === 3 ? 'day3_storm' : null
 
       set({
         day: nextDay,
@@ -622,6 +861,10 @@ export const useGameStore = create<GameState>((set, get) => {
         activeScan: null,
         scanError: null,
         activeDiscovery: null,
+        tutorialStep: tutStep,
+        callEarthState: 'idle',
+        callEarthCountdown: 0,
+        callEarthMessage: null,
       })
 
       window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
@@ -630,10 +873,13 @@ export const useGameStore = create<GameState>((set, get) => {
     resetMission: () => {
       resetPhotoHistory()
       const newSpots = generateDiscoverySpots()
+      const state = get()
+      const split = getDefaultPowerSplit(state.powerBudget)
       const defaultCapacity =
-        BASE_ROVER_CAPACITY + DEFAULT_POWER_SPLIT.rover * ROVER_CAPACITY_PER_POINT
+        BASE_ROVER_CAPACITY + split.rover * ROVER_CAPACITY_PER_POINT
 
       set({
+        isGameStarted: false,
         day: 1,
         timeLeft: DAY_DURATION_SEC,
         dayPhase: 'morning',
@@ -658,8 +904,8 @@ export const useGameStore = create<GameState>((set, get) => {
         crewDamageToday: 0,
         air: INITIAL_AIR,
         airBeforeToday: INITIAL_AIR,
-        powerSplit: { ...DEFAULT_POWER_SPLIT },
-        shieldToday: DEFAULT_POWER_SPLIT.shield,
+        powerSplit: { ...split },
+        shieldToday: split.shield,
         nextDayStartBatteryRatio: 1.0,
         batteryCapacity: defaultCapacity,
         battery: defaultCapacity,
@@ -673,10 +919,14 @@ export const useGameStore = create<GameState>((set, get) => {
         roverStormPenaltyNextDay: false,
         roverPenaltyAppliedToday: false,
         whySentenceToday: '',
+        tutorialStep: null,
+        hasMovedSliderDay1: false,
+        callEarthState: 'idle',
+        callEarthCountdown: 0,
+        callEarthMessage: null,
       })
 
       window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
-      get().loadSpaceWeather()
     },
   }
 })

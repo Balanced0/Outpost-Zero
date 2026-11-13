@@ -100,3 +100,6 @@ export const SCAN_BATTERY_COST: Record<DiscoveryType, number> = {
   riverbed: 12,
   ice: 15,
 }
+
+// Battery cost to transmit message to Earth (Stage 7A)
+export const CALL_EARTH_BATTERY_COST = 5

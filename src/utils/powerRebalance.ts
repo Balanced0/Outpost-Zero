@@ -6,18 +6,32 @@ export interface PowerSplit {
   rover: number
 }
 
+export function getDefaultPowerSplit(budget: number = TOTAL_POWER_BUDGET): PowerSplit {
+  if (budget === 90) {
+    return { air: 30, shield: 30, rover: 30 }
+  }
+  const each = Math.floor(budget / 3)
+  const remainder = budget - each * 3
+  return {
+    air: each + remainder,
+    shield: each,
+    rover: each,
+  }
+}
+
 /**
  * Rebalances power split when one slider is modified.
  * - If increasing: consumes unallocated power first, then deducts from other sliders proportionally.
  * - If decreasing: reduces the slider, leaving unallocated power ("Power left").
- * Total sum is always clamped to <= TOTAL_POWER_BUDGET.
+ * Total sum is always clamped to <= budget.
  */
 export function rebalancePowerSplit(
   current: PowerSplit,
   targetKey: keyof PowerSplit,
-  desiredValue: number
+  desiredValue: number,
+  budget: number = TOTAL_POWER_BUDGET
 ): PowerSplit {
-  const clampedDesired = Math.max(0, Math.min(TOTAL_POWER_BUDGET, Math.round(desiredValue)))
+  const clampedDesired = Math.max(0, Math.min(budget, Math.round(desiredValue)))
   const currentVal = current[targetKey]
   const delta = clampedDesired - currentVal
 
@@ -28,7 +42,7 @@ export function rebalancePowerSplit(
   )
 
   const currentTotal = current.air + current.shield + current.rover
-  const unassigned = Math.max(0, TOTAL_POWER_BUDGET - currentTotal)
+  const unassigned = Math.max(0, budget - currentTotal)
 
   if (delta < 0) {
     // Decreasing is always allowed; frees up unassigned power

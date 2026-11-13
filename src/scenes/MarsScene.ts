@@ -9,6 +9,7 @@ import {
   BATTERY_RECHARGE_BASE,
   SCAN_PROXIMITY_RADIUS,
 } from '../config/gameConfig'
+import { PLANETS } from '../config/planets'
 import { DiscoverySpot } from '../data/discoverySpots'
 
 const MAP_W = 4000
@@ -30,7 +31,12 @@ export default class MarsScene extends Phaser.Scene {
   private rng!: Phaser.Math.RandomDataGenerator
   private dustEmitter!: Phaser.GameObjects.Particles.ParticleEmitter
 
-  // Stage 6: Discoveries & Scanning Graphics
+  // Ground & Visual Layers
+  private groundRenderTexture!: Phaser.GameObjects.RenderTexture
+  private cratersGraphics!: Phaser.GameObjects.Graphics
+  private rockSprites: (Phaser.GameObjects.Image | Phaser.GameObjects.Graphics)[] = []
+
+  // Stage 6 & 7A: Discoveries & Scanning Graphics
   private spotContainers: Map<string, Phaser.GameObjects.Container> = new Map()
   private scanGraphics!: Phaser.GameObjects.Graphics
 
@@ -47,7 +53,7 @@ export default class MarsScene extends Phaser.Scene {
 
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H)
 
-    // ---- 1. GROUND TILES ----
+    // ---- 1. GROUND TILES (Mars or Moon) ----
     this.buildGround(checkFailed)
 
     // ---- 2. CRATERS ----
@@ -59,7 +65,7 @@ export default class MarsScene extends Phaser.Scene {
     // ---- 4. BASE ----
     this.placeBase(checkFailed)
 
-    // ---- 5. DISCOVERY SPOTS (Stage 6) ----
+    // ---- 5. DISCOVERY SPOTS ----
     this.refreshDiscoverySpots()
 
     // ---- 6. ROVER ----
@@ -68,7 +74,7 @@ export default class MarsScene extends Phaser.Scene {
     // ---- 7. DUST PARTICLES ----
     this.createDustParticles()
 
-    // ---- 8. SCAN GRAPHICS (Stage 6) ----
+    // ---- 8. SCAN GRAPHICS ----
     this.scanGraphics = this.add.graphics()
     this.scanGraphics.setDepth(16)
 
@@ -96,6 +102,12 @@ export default class MarsScene extends Phaser.Scene {
     }
     window.addEventListener('reset-rover-to-base', handleReset)
 
+    // Planet changed listener (Moon grey tint vs Mars red-orange)
+    const handlePlanetChanged = () => {
+      this.applyPlanetVisuals()
+    }
+    window.addEventListener('planet-changed', handlePlanetChanged)
+
     // Discovery collected listener
     const handleCollected = (e: any) => {
       const id = e?.detail?.id
@@ -120,6 +132,7 @@ export default class MarsScene extends Phaser.Scene {
 
     this.events.once('shutdown', () => {
       window.removeEventListener('reset-rover-to-base', handleReset)
+      window.removeEventListener('planet-changed', handlePlanetChanged)
       window.removeEventListener('discovery-collected', handleCollected)
     })
   }
@@ -138,29 +151,69 @@ export default class MarsScene extends Phaser.Scene {
     }
 
     if (tileKeys.length === 0) {
-      // Fallback: procedural canvas / graphics
+      // Fallback: procedural graphics
       const gfx = this.add.graphics()
       gfx.fillStyle(0x9a3d1e, 1)
       gfx.fillRect(0, 0, MAP_W, MAP_H)
       return
     }
 
-    // Paint the world using an RenderTexture for speed (1 single draw call)
-    const rt = this.add.renderTexture(0, 0, MAP_W, MAP_H)
-    rt.setOrigin(0, 0)
-    rt.setDepth(0)
+    // Paint the world using a single RenderTexture
+    this.groundRenderTexture = this.add.renderTexture(0, 0, MAP_W, MAP_H)
+    this.groundRenderTexture.setOrigin(0, 0)
+    this.groundRenderTexture.setDepth(0)
 
     for (let c = 0; c < cols; c++) {
       for (let r = 0; r < rows; r++) {
         const key = tileKeys[this.rng.integerInRange(0, tileKeys.length - 1)]
-        rt.draw(key, c * TILE_SIZE, r * TILE_SIZE)
+        this.groundRenderTexture.draw(key, c * TILE_SIZE, r * TILE_SIZE)
       }
+    }
+
+    this.applyPlanetVisuals()
+  }
+
+  private applyPlanetVisuals() {
+    const planetId = useGameStore.getState().planet
+    const planetConfig = PLANETS[planetId]
+
+    if (this.groundRenderTexture) {
+      if (planetId === 'moon') {
+        this.groundRenderTexture.setTint(planetConfig.groundTint)
+      } else {
+        this.groundRenderTexture.clearTint()
+      }
+    }
+
+    // Tint rocks if on Moon
+    this.rockSprites.forEach((rock) => {
+      if (rock instanceof Phaser.GameObjects.Image) {
+        if (planetId === 'moon') {
+          rock.setTint(0x94a3b8)
+        } else {
+          rock.clearTint()
+        }
+      }
+    })
+
+    // If moon, stop dust emitter
+    if (this.dustEmitter && !planetConfig.hasAtmosphereDust) {
+      this.dustEmitter.stop()
     }
   }
 
   private drawCraters() {
-    const craterGfx = this.add.graphics()
-    craterGfx.setDepth(1)
+    if (this.cratersGraphics) {
+      this.cratersGraphics.destroy()
+    }
+
+    const isMoon = useGameStore.getState().planet === 'moon'
+    const rimColor = isMoon ? 0x475569 : 0x6e2810
+    const floorColor = isMoon ? 0x1e293b : 0x2f1107
+    const shadowColor = isMoon ? 0x090d16 : 0x180803
+
+    this.cratersGraphics = this.add.graphics()
+    this.cratersGraphics.setDepth(1)
 
     const craterCount = 50
     for (let i = 0; i < craterCount; i++) {
@@ -169,16 +222,16 @@ export default class MarsScene extends Phaser.Scene {
       const r = this.rng.integerInRange(24, 90)
 
       // Outer rim
-      craterGfx.fillStyle(0x6e2810, 0.45)
-      craterGfx.fillCircle(cx, cy, r + 6)
+      this.cratersGraphics.fillStyle(rimColor, 0.5)
+      this.cratersGraphics.fillCircle(cx, cy, r + 6)
 
-      // Inner crater floor (dark shadowed circle)
-      craterGfx.fillStyle(0x2f1107, 0.85)
-      craterGfx.fillCircle(cx, cy, r)
+      // Inner crater floor
+      this.cratersGraphics.fillStyle(floorColor, 0.85)
+      this.cratersGraphics.fillCircle(cx, cy, r)
 
       // Shadow crescent
-      craterGfx.fillStyle(0x180803, 0.9)
-      craterGfx.fillCircle(cx + r * 0.2, cy + r * 0.2, r * 0.75)
+      this.cratersGraphics.fillStyle(shadowColor, 0.9)
+      this.cratersGraphics.fillCircle(cx + r * 0.2, cy + r * 0.2, r * 0.75)
     }
   }
 
@@ -189,7 +242,9 @@ export default class MarsScene extends Phaser.Scene {
       if (!checkFailed(k)) envKeys.push(k)
     }
 
+    const isMoon = useGameStore.getState().planet === 'moon'
     const count = 200
+
     for (let i = 0; i < count; i++) {
       let x: number, y: number
       do {
@@ -204,16 +259,21 @@ export default class MarsScene extends Phaser.Scene {
         img.setScale(scale)
         img.setAlpha(this.rng.realInRange(0.75, 1.0))
         img.setDepth(2)
+        if (isMoon) {
+          img.setTint(0x94a3b8)
+        }
+        this.rockSprites.push(img)
       } else {
         // Fallback: draw rock shape
         const gfx = this.add.graphics()
         gfx.setDepth(2)
         const rw = this.rng.integerInRange(12, 36)
         const rh = this.rng.integerInRange(8, 24)
-        gfx.fillStyle(0x5a4030, 0.9)
+        gfx.fillStyle(isMoon ? 0x334155 : 0x5a4030, 0.9)
         gfx.fillEllipse(x, y, rw, rh)
-        gfx.fillStyle(0x7a5a40, 0.5)
+        gfx.fillStyle(isMoon ? 0x64748b : 0x7a5a40, 0.5)
         gfx.fillEllipse(x - rw * 0.15, y - rh * 0.2, rw * 0.5, rh * 0.4)
+        this.rockSprites.push(gfx)
       }
     }
   }
@@ -251,7 +311,6 @@ export default class MarsScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------ Discovery Spots
   private refreshDiscoverySpots() {
-    // Clear any existing containers
     this.spotContainers.forEach((c) => c.destroy())
     this.spotContainers.clear()
 
@@ -275,7 +334,6 @@ export default class MarsScene extends Phaser.Scene {
       aura.strokeCircle(0, 0, auraRadius)
       container.add(aura)
 
-      // Add gentle looping pulse tween
       this.tweens.add({
         targets: aura,
         scaleX: 1.25,
@@ -290,20 +348,17 @@ export default class MarsScene extends Phaser.Scene {
       // 2. Distinct Visual Sprite / Graphic
       const graphic = this.add.graphics()
       if (spot.type === 'rock') {
-        // Rock sample: Cluster of faceted Martian rocks with sparkling mineral flecks
         graphic.fillStyle(0x5c3218, 1)
         graphic.fillCircle(-6, -4, 12)
         graphic.fillStyle(0x7c4522, 1)
         graphic.fillCircle(6, 2, 14)
         graphic.fillStyle(0xa15d31, 1)
         graphic.fillCircle(0, 4, 10)
-        // Highlight mineral specks
         graphic.fillStyle(0xfde047, 0.9)
         graphic.fillCircle(-4, -6, 2)
         graphic.fillCircle(7, 0, 2.5)
         graphic.fillCircle(1, 5, 2)
       } else if (spot.type === 'riverbed') {
-        // Ancient riverbed: Wavy, striated desert mud/sediment bands
         graphic.fillStyle(0x78350f, 0.9)
         graphic.fillRoundedRect(-24, -14, 48, 28, 8)
         graphic.fillStyle(0xb45309, 0.95)
@@ -313,7 +368,6 @@ export default class MarsScene extends Phaser.Scene {
         graphic.fillStyle(0xfef08a, 0.8)
         graphic.fillRect(-12, -2, 24, 4)
       } else {
-        // Ice deposit: Blue-white crystalline ice patch (NO purple plants!)
         graphic.fillStyle(0x0284c7, 0.85)
         graphic.fillCircle(0, 0, 20)
         graphic.fillStyle(0x38bdf8, 0.9)
@@ -323,7 +377,6 @@ export default class MarsScene extends Phaser.Scene {
         graphic.fillStyle(0xffffff, 1)
         graphic.fillCircle(0, 0, 5)
 
-        // Crystalline facet spokes
         graphic.lineStyle(2, 0xffffff, 0.9)
         graphic.lineBetween(-16, 0, 16, 0)
         graphic.lineBetween(0, -16, 0, 16)
@@ -349,7 +402,6 @@ export default class MarsScene extends Phaser.Scene {
       this.rover = this.physics.add.image(BASE_X, BASE_Y, 'rover')
       this.rover.setScale(0.85)
     } else {
-      // Fallback: procedural rover graphic
       const rCanvas = this.make.graphics()
       rCanvas.setVisible(false)
       rCanvas.fillStyle(0xeeeeee, 1)
@@ -398,14 +450,18 @@ export default class MarsScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     const store = useGameStore.getState()
-    const { isPoweredOff, isControlsLocked, dayPhase, joystickDx, joystickDy, activeScan } = store
+    const { isGameStarted, isPoweredOff, isControlsLocked, dayPhase, joystickDx, joystickDy, activeScan, planet } = store
 
     const dt = delta / 1000 // seconds
+
+    if (!isGameStarted) {
+      return
+    }
 
     // Advance the day timer
     store.tickDayTimer(dt)
 
-    // Tick active scan (Stage 6)
+    // Tick active scan
     if (activeScan) {
       store.tickScan(dt)
     }
@@ -415,7 +471,7 @@ export default class MarsScene extends Phaser.Scene {
 
     if (isPoweredOff || isControlsLocked || dayPhase === 'ended' || dayPhase === 'morning') {
       this.roverBody.setVelocity(0, 0)
-      this.dustEmitter.stop()
+      if (this.dustEmitter && this.dustEmitter.emitting) this.dustEmitter.stop()
       store.setIsDriving(false)
       store.setRoverPos(this.rover.x, this.rover.y)
       return
@@ -425,7 +481,6 @@ export default class MarsScene extends Phaser.Scene {
     let vx = 0
     let vy = 0
 
-    // Keyboard
     const leftHeld = this.cursors.left.isDown || this.wasd.left.isDown
     const rightHeld = this.cursors.right.isDown || this.wasd.right.isDown
     const upHeld = this.cursors.up.isDown || this.wasd.up.isDown
@@ -436,7 +491,7 @@ export default class MarsScene extends Phaser.Scene {
     if (upHeld) vy -= ROVER_SPEED
     if (downHeld) vy += ROVER_SPEED
 
-    // Joystick (normalized -1..1)
+    // Joystick
     if (joystickDx !== 0 || joystickDy !== 0) {
       vx = joystickDx * ROVER_SPEED
       vy = joystickDy * ROVER_SPEED
@@ -459,30 +514,39 @@ export default class MarsScene extends Phaser.Scene {
       this.rover.setRotation(angle)
     }
 
+    // Planet parameters: Moon has no atmosphere dust & 1.1x battery drain
+    const planetConfig = PLANETS[planet]
+
     // --- Dust particles & Distance tracking ---
     if (driving) {
       const stepDist = Math.sqrt(vx * vx + vy * vy) * dt
       store.addDistanceDriven(stepDist)
 
-      const angle = Math.atan2(vy, vx)
-      const offsetDist = 28
-      const ex = this.rover.x - Math.cos(angle) * offsetDist
-      const ey = this.rover.y - Math.sin(angle) * offsetDist
-      this.dustEmitter.setPosition(ex, ey)
-      if (!this.dustEmitter.emitting) this.dustEmitter.start()
+      // Only emit dust on Mars (Moon has no dust particles in vacuum)
+      if (planetConfig.hasAtmosphereDust) {
+        const angle = Math.atan2(vy, vx)
+        const offsetDist = 28
+        const ex = this.rover.x - Math.cos(angle) * offsetDist
+        const ey = this.rover.y - Math.sin(angle) * offsetDist
+        this.dustEmitter.setPosition(ex, ey)
+        if (!this.dustEmitter.emitting) this.dustEmitter.start()
+      } else {
+        if (this.dustEmitter.emitting) this.dustEmitter.stop()
+      }
     } else {
-      if (this.dustEmitter.emitting) this.dustEmitter.stop()
+      if (this.dustEmitter && this.dustEmitter.emitting) this.dustEmitter.stop()
     }
 
     // --- Store updates ---
     store.setIsDriving(driving)
 
-    // Battery
+    // Battery with Planet drain multiplier (Moon drains 10% faster: 1.1x)
     const dist = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, BASE_X, BASE_Y)
     let battery = store.battery
 
     if (driving) {
-      battery -= BATTERY_DRAIN_DRIVING * dt
+      const drainRate = BATTERY_DRAIN_DRIVING * planetConfig.batteryDrainMultiplier
+      battery -= drainRate * dt
     } else if (dist < BASE_SAFE_DISTANCE) {
       battery += BATTERY_RECHARGE_BASE * dt
     }
@@ -496,7 +560,7 @@ export default class MarsScene extends Phaser.Scene {
 
     store.setRoverPos(this.rover.x, this.rover.y)
 
-    // --- Proximity check for Discovery Spots (Stage 6) ---
+    // --- Proximity check for Discovery Spots ---
     const spots = store.discoverySpots.filter((s) => !s.collected)
     let closestSpot: DiscoverySpot | null = null
     let closestDist = Infinity

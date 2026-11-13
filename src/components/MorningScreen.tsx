@@ -1,13 +1,14 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import {
-  TOTAL_POWER_BUDGET,
   BASE_ROVER_CAPACITY,
   ROVER_CAPACITY_PER_POINT,
   AIR_DAILY_DROP,
   AIR_REFILL_MULTIPLIER,
   ROVER_STORM_PENALTY,
 } from '../config/balance'
+import { DIFFICULTIES } from '../config/difficulty'
+import { PLANETS } from '../config/planets'
 import WhyButton from './WhyButton'
 
 function formatDonkiDate(dateStr: string): string {
@@ -16,7 +17,7 @@ function formatDonkiDate(dateStr: string): string {
     const [y, m, d] = dateStr.split('-').map(Number)
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ]
     if (!y || !m || !d) return dateStr
     return `${d} ${months[m - 1]} ${y}`
@@ -26,11 +27,19 @@ function formatDonkiDate(dateStr: string): string {
 }
 
 export default function MorningScreen() {
+  const isGameStarted = useGameStore((s) => s.isGameStarted)
   const day = useGameStore((s) => s.day)
   const dayPhase = useGameStore((s) => s.dayPhase)
   const isMissionComplete = useGameStore((s) => s.isMissionComplete)
   const isAirDepleted = useGameStore((s) => s.isAirDepleted)
   const isCrewDepleted = useGameStore((s) => s.isCrewDepleted)
+
+  const planet = useGameStore((s) => s.planet)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const powerBudget = useGameStore((s) => s.powerBudget)
+  const skipTutorial = useGameStore((s) => s.skipTutorial)
+  const hasMovedSliderDay1 = useGameStore((s) => s.hasMovedSliderDay1)
+  const tutorialStep = useGameStore((s) => s.tutorialStep)
 
   const isLoadingSpaceWeather = useGameStore((s) => s.isLoadingSpaceWeather)
   const spaceWeatherSource = useGameStore((s) => s.spaceWeatherSource)
@@ -44,18 +53,17 @@ export default function MorningScreen() {
   const setPowerAlloc = useGameStore((s) => s.setPowerAlloc)
   const startDrivingDay = useGameStore((s) => s.startDrivingDay)
 
-  // Trigger loading NASA data on mount if not yet loaded
   useEffect(() => {
-    if (isLoadingSpaceWeather) {
+    if (isGameStarted && isLoadingSpaceWeather) {
       loadSpaceWeather()
     }
-  }, [isLoadingSpaceWeather, loadSpaceWeather])
+  }, [isGameStarted, isLoadingSpaceWeather, loadSpaceWeather])
 
-  if (dayPhase !== 'morning' || isMissionComplete || isAirDepleted || isCrewDepleted) {
+  if (!isGameStarted || dayPhase !== 'morning' || isMissionComplete || isAirDepleted || isCrewDepleted) {
     return null
   }
 
-  // 1. Loading Skeleton / Spinner State (Stage 5)
+  // 1. Loading Skeleton / Spinner State (After Launch Mission)
   if (isLoadingSpaceWeather) {
     return (
       <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pointer-events-auto select-none">
@@ -76,7 +84,7 @@ export default function MorningScreen() {
   }
 
   const totalUsed = powerSplit.air + powerSplit.shield + powerSplit.rover
-  const powerLeft = Math.max(0, TOTAL_POWER_BUDGET - totalUsed)
+  const powerLeft = Math.max(0, powerBudget - totalUsed)
 
   // Projected stats
   const rawCapacity = BASE_ROVER_CAPACITY + powerSplit.rover * ROVER_CAPACITY_PER_POINT
@@ -134,6 +142,19 @@ export default function MorningScreen() {
 
   const hasSolarFlare = stormEventsToday.some((e) => e.toLowerCase().includes('solar flare'))
 
+  // Day 1 tutorial constraint: must move a slider before driving unlocks
+  const isDay1Locked = day === 1 && !skipTutorial && !hasMovedSliderDay1
+
+  // Explorer Mode Hint
+  const explorerHint =
+    stormLevelToday === 'strong'
+      ? 'A big radiation storm is coming today! Give lots of power to the Shield to protect the astronauts.'
+      : stormLevelToday === 'minor'
+      ? 'A small storm is coming. Shield up a little to keep the crew safe.'
+      : roverPenaltyNextDay
+      ? 'Your rover is recovering from yesterday’s storm! Put more power into the Rover to boost battery.'
+      : 'The Sun is quiet today! Great day to power up your Rover and explore far for discoveries.'
+
   const sliders = [
     {
       key: 'air' as const,
@@ -178,10 +199,15 @@ export default function MorningScreen() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <div>
-            <span className="text-[11px] font-bold tracking-widest text-orange-400 uppercase">
-              Outpost Zero • Morning Briefing
-            </span>
-            <h1 className="text-2xl font-extrabold text-white">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold tracking-widest text-orange-400 uppercase">
+                Outpost Zero • {PLANETS[planet].name}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold ${DIFFICULTIES[difficulty].badgeColor}`}>
+                {DIFFICULTIES[difficulty].name}
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-white mt-0.5">
               Day {day}: Plan your power
             </h1>
           </div>
@@ -193,12 +219,31 @@ export default function MorningScreen() {
                 : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
             }`}
           >
-            {powerLeft > 0 ? `⚡ Power left: ${powerLeft}` : '⚡ 100% Allocated'}
+            {powerLeft > 0 ? `⚡ Power left: ${powerLeft}` : `⚡ ${powerBudget}/${powerBudget}`}
           </div>
         </div>
 
-        {/* Space Weather Report Card (Stage 4 & 5) */}
-        <div className="bg-slate-800/90 rounded-2xl p-3.5 border border-slate-700 flex flex-col gap-2 relative">
+        {/* Explorer Hint (Stage 7A) */}
+        {difficulty === 'explorer' && (
+          <div className="bg-emerald-950/70 border border-emerald-500/50 rounded-2xl p-2.5 flex items-start gap-2.5 text-xs text-emerald-200 animate-fade-in">
+            <span className="text-base flex-shrink-0">💡</span>
+            <div className="leading-snug">
+              <span className="font-bold text-emerald-300 block text-[10px] uppercase tracking-wider">
+                Explorer Hint
+              </span>
+              <p className="mt-0.5">{explorerHint}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Space Weather Report Card (Stage 4 & 5 & Highlighted in Day 3 Tutorial) */}
+        <div
+          className={`bg-slate-800/90 rounded-2xl p-3.5 border transition-all flex flex-col gap-2 relative ${
+            tutorialStep === 'day3_storm'
+              ? 'border-cyan-400 ring-2 ring-cyan-400/50 shadow-lg shadow-cyan-950/50'
+              : 'border-slate-700'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -279,8 +324,14 @@ export default function MorningScreen() {
           </div>
         </div>
 
-        {/* Sliders Container */}
-        <div className="flex flex-col gap-2.5">
+        {/* Sliders Container (Highlighted in Day 1 Tutorial) */}
+        <div
+          className={`flex flex-col gap-2.5 p-1 rounded-2xl transition-all ${
+            tutorialStep === 'day1_sliders' || isDay1Locked
+              ? 'ring-2 ring-cyan-400/60 p-2 bg-cyan-950/20'
+              : ''
+          }`}
+        >
           {sliders.map((s) => (
             <div
               key={s.key}
@@ -306,7 +357,7 @@ export default function MorningScreen() {
                   </span>
                   <button
                     onClick={() => setPowerAlloc(s.key, s.value + 1)}
-                    disabled={s.value >= TOTAL_POWER_BUDGET}
+                    disabled={s.value >= powerBudget}
                     className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer font-mono font-bold"
                   >
                     +
@@ -317,7 +368,7 @@ export default function MorningScreen() {
               <input
                 type="range"
                 min="0"
-                max={TOTAL_POWER_BUDGET}
+                max={powerBudget}
                 value={s.value}
                 onChange={(e) => setPowerAlloc(s.key, Number(e.target.value))}
                 className={`w-full h-2.5 bg-slate-700 rounded-lg cursor-pointer ${s.trackColor}`}
@@ -333,14 +384,26 @@ export default function MorningScreen() {
           ))}
         </div>
 
-        {/* Start Driving Button */}
-        <button
-          onClick={startDrivingDay}
-          className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-extrabold rounded-2xl transition-colors cursor-pointer shadow-xl shadow-orange-950/50 text-center text-base tracking-wide flex items-center justify-center gap-2"
-        >
-          <span>🚀</span>
-          <span>Start driving</span>
-        </button>
+        {/* Start Driving Button (Locked on Day 1 until slider moved) */}
+        <div className="flex flex-col items-center gap-1">
+          <button
+            onClick={startDrivingDay}
+            disabled={isDay1Locked}
+            className={`w-full py-3 px-4 font-extrabold rounded-2xl transition-all shadow-xl text-center text-base tracking-wide flex items-center justify-center gap-2 ${
+              isDay1Locked
+                ? 'bg-slate-700 text-slate-400 border border-slate-600 cursor-not-allowed opacity-75'
+                : 'bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white cursor-pointer shadow-orange-950/50'
+            }`}
+          >
+            <span>🚀</span>
+            <span>{isDay1Locked ? 'Move a slider to unlock Start driving' : 'Start driving'}</span>
+          </button>
+          {isDay1Locked && (
+            <span className="text-[11px] text-cyan-300 font-medium animate-pulse">
+              👈 Tip: Tap + or - on any slider to test balancing your power!
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )

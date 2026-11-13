@@ -31,6 +31,11 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     title: 'Scientific Scanning',
     explanation: 'Scientists use instruments to study rocks and ice. That is how we learn if Mars once had water.',
   },
+  'comms delay': {
+    title: 'Comms Delay',
+    explanation:
+      'Radio signals travel at the speed of light, but Mars is so far away that messages take minutes. So rover teams send a plan and wait for the answer.',
+  },
 }
 
 export function getGlossaryEntry(term: string): GlossaryEntry {
