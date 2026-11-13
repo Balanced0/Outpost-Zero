@@ -33,3 +33,32 @@ export const AIR_REFILL_MULTIPLIER = 0.47
 export const BATTERY_DRAIN_DRIVING = 2
 export const BATTERY_RECHARGE_BASE = 4
 
+// --- STAGE 4: Solar Storms & Crew Health ---
+
+// Crew Health constants
+export const INITIAL_CREW_HEALTH = 100
+export const CREW_DAMAGE_MULTIPLIER = 0.5
+export const CREW_HEAL_NO_STORM = 5 // Heals +5 on quiet days (max 100)
+
+// Storm schedule odds
+export const STORM_ODDS = {
+  none: 0.55,
+  minor: 0.30,
+  strong: 0.15,
+}
+
+// Storm intensity strengths
+export const STORM_STRENGTHS: Record<'none' | 'minor' | 'strong', number> = {
+  none: 0,
+  minor: 40,
+  strong: 80,
+}
+
+// Storm timing parameters
+export const STORM_START_MIN_RATIO = 0.25 // Between 25% and 70% of day
+export const STORM_START_MAX_RATIO = 0.70
+export const STORM_WARNING_SEC = 10 // 10s countdown alert before storm
+export const STORM_DURATION_SEC = 15 // Storm duration
+
+// Rover penalty when caught exposed at storm end
+export const ROVER_STORM_PENALTY = 30 // Reduced battery capacity next morning

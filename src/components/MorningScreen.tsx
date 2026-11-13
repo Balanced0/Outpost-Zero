@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import {
   TOTAL_POWER_BUDGET,
@@ -5,18 +6,24 @@ import {
   ROVER_CAPACITY_PER_POINT,
   AIR_DAILY_DROP,
   AIR_REFILL_MULTIPLIER,
+  ROVER_STORM_PENALTY,
 } from '../config/balance'
 
 export default function MorningScreen() {
+  const [showRadiationWhy, setShowRadiationWhy] = useState(false)
+
   const day = useGameStore((s) => s.day)
   const dayPhase = useGameStore((s) => s.dayPhase)
   const isMissionComplete = useGameStore((s) => s.isMissionComplete)
   const isAirDepleted = useGameStore((s) => s.isAirDepleted)
+  const isCrewDepleted = useGameStore((s) => s.isCrewDepleted)
+  const stormLevelToday = useGameStore((s) => s.stormLevelToday)
+  const roverPenaltyNextDay = useGameStore((s) => s.roverStormPenaltyNextDay)
   const powerSplit = useGameStore((s) => s.powerSplit)
   const setPowerAlloc = useGameStore((s) => s.setPowerAlloc)
   const startDrivingDay = useGameStore((s) => s.startDrivingDay)
 
-  if (dayPhase !== 'morning' || isMissionComplete || isAirDepleted) {
+  if (dayPhase !== 'morning' || isMissionComplete || isAirDepleted || isCrewDepleted) {
     return null
   }
 
@@ -24,8 +31,10 @@ export default function MorningScreen() {
   const powerLeft = Math.max(0, TOTAL_POWER_BUDGET - totalUsed)
 
   // Projected stats
-  const projectedCapacity = Math.round(
-    BASE_ROVER_CAPACITY + powerSplit.rover * ROVER_CAPACITY_PER_POINT
+  const rawCapacity = BASE_ROVER_CAPACITY + powerSplit.rover * ROVER_CAPACITY_PER_POINT
+  const projectedCapacity = Math.max(
+    20,
+    Math.round(rawCapacity - (roverPenaltyNextDay ? ROVER_STORM_PENALTY : 0))
   )
   const projectedAirRefill = (powerSplit.air * AIR_REFILL_MULTIPLIER).toFixed(1)
   const airNetChange = (
@@ -34,6 +43,31 @@ export default function MorningScreen() {
   ).toFixed(1)
   const isAirPositive = Number(airNetChange) >= 0
 
+  // Space weather config
+  const weatherConfig = {
+    none: {
+      label: 'Calm',
+      icon: '☀️',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40',
+      description: 'The Sun is quiet today.',
+      hasRadiationWord: false,
+    },
+    minor: {
+      label: 'Minor storm',
+      icon: '⚠️',
+      badgeColor: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40',
+      description: 'A small burst of radiation is coming. Shield up a little.',
+      hasRadiationWord: true,
+    },
+    strong: {
+      label: 'Strong storm',
+      icon: '🚨',
+      badgeColor: 'bg-red-500/20 text-red-300 border-red-400/40',
+      description: 'A big radiation burst is coming. The crew needs strong shields!',
+      hasRadiationWord: true,
+    },
+  }[stormLevelToday]
+
   const sliders = [
     {
       key: 'air' as const,
@@ -41,7 +75,6 @@ export default function MorningScreen() {
       icon: '🫁',
       value: powerSplit.air,
       description: 'Keeps the astronauts breathing.',
-      accent: 'from-cyan-500 to-blue-500',
       trackColor: 'accent-cyan-400',
       statLabel: `Refill: +${projectedAirRefill}% (${isAirPositive ? '+' : ''}${airNetChange}% net / day)`,
       statColor: isAirPositive ? 'text-emerald-400' : 'text-amber-400',
@@ -52,7 +85,6 @@ export default function MorningScreen() {
       icon: '🛡️',
       value: powerSplit.shield,
       description: 'Protects the base from radiation. (Storms are coming soon!)',
-      accent: 'from-indigo-500 to-purple-500',
       trackColor: 'accent-purple-400',
       statLabel: `Defense strength: ${powerSplit.shield}%`,
       statColor: 'text-purple-300',
@@ -63,18 +95,19 @@ export default function MorningScreen() {
       icon: '🚗',
       value: powerSplit.rover,
       description: 'More power means a bigger battery for exploring.',
-      accent: 'from-amber-500 to-orange-500',
       trackColor: 'accent-orange-400',
-      statLabel: `Battery capacity: ${projectedCapacity} units`,
-      statColor: 'text-amber-300',
+      statLabel: `Battery capacity: ${projectedCapacity} units${
+        roverPenaltyNextDay ? ' (-30 storm penalty)' : ''
+      }`,
+      statColor: roverPenaltyNextDay ? 'text-red-400' : 'text-amber-300',
     },
   ]
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 pointer-events-auto select-none animate-fade-in">
-      <div className="bg-slate-900/95 border-2 border-orange-500/60 rounded-3xl max-w-lg w-full p-6 text-white shadow-2xl flex flex-col gap-5">
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 pointer-events-auto select-none animate-fade-in overflow-y-auto">
+      <div className="bg-slate-900/95 border-2 border-orange-500/60 rounded-3xl max-w-lg w-full p-5 md:p-6 text-white shadow-2xl flex flex-col gap-4 my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <div>
             <span className="text-[11px] font-bold tracking-widest text-orange-400 uppercase">
               Outpost Zero • Morning Briefing
@@ -96,21 +129,85 @@ export default function MorningScreen() {
           </div>
         </div>
 
+        {/* Space Weather Report Card (Stage 4) */}
+        <div className="bg-slate-800/90 rounded-2xl p-3.5 border border-slate-700 flex flex-col gap-2 relative">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span>📡</span>
+              <span>Space weather today</span>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-full border text-xs font-bold flex items-center gap-1 ${weatherConfig.badgeColor}`}
+            >
+              <span>{weatherConfig.icon}</span>
+              <span>{weatherConfig.label}</span>
+            </span>
+          </div>
+
+          <div className="text-xs text-slate-200 flex items-center flex-wrap gap-1">
+            {weatherConfig.hasRadiationWord ? (
+              <>
+                <span>
+                  {stormLevelToday === 'minor'
+                    ? 'A small burst of'
+                    : 'A big'}
+                </span>
+                <span className="text-amber-400 font-semibold underline decoration-dotted underline-offset-2">
+                  radiation
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowRadiationWhy(true)}
+                  className="px-1.5 py-0.5 bg-blue-600/60 hover:bg-blue-500 text-[10px] font-bold rounded-md text-white border border-blue-400/40 cursor-pointer transition-colors"
+                >
+                  Why?
+                </button>
+                <span>
+                  {stormLevelToday === 'minor'
+                    ? 'is coming. Shield up a little.'
+                    : 'burst is coming. The crew needs strong shields!'}
+                </span>
+              </>
+            ) : (
+              <span>{weatherConfig.description}</span>
+            )}
+          </div>
+
+          {/* Radiation "Why?" Popup */}
+          {showRadiationWhy && (
+            <div className="mt-1 bg-blue-950/90 border border-blue-400/50 rounded-xl p-3 text-xs text-sky-200 shadow-xl flex flex-col gap-2 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sky-300 flex items-center gap-1">
+                  <span>ℹ️</span> About Space Radiation
+                </span>
+                <button
+                  onClick={() => setShowRadiationWhy(false)}
+                  className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="leading-relaxed">
+                Radiation is invisible energy from the Sun. Too much can make astronauts sick.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Sliders Container */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {sliders.map((s) => (
             <div
               key={s.key}
-              className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/80 flex flex-col gap-2.5 shadow-sm"
+              className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/80 flex flex-col gap-2 shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{s.icon}</span>
+                  <span className="text-lg">{s.icon}</span>
                   <span className="font-bold text-sm text-slate-100">{s.label}</span>
                 </div>
 
-                {/* Number display with +/- buttons for easy tuning */}
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700 rounded-xl px-2 py-1">
+                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700 rounded-xl px-2 py-0.5">
                   <button
                     onClick={() => setPowerAlloc(s.key, s.value - 1)}
                     disabled={s.value <= 0}
@@ -131,7 +228,6 @@ export default function MorningScreen() {
                 </div>
               </div>
 
-              {/* Slider track */}
               <input
                 type="range"
                 min="0"
@@ -141,7 +237,6 @@ export default function MorningScreen() {
                 className={`w-full h-2.5 bg-slate-700 rounded-lg cursor-pointer ${s.trackColor}`}
               />
 
-              {/* Kid-friendly description & live stat */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
                 <p className="text-slate-400 leading-snug">{s.description}</p>
                 <span className={`font-mono font-medium flex-shrink-0 ${s.statColor}`}>
@@ -155,7 +250,7 @@ export default function MorningScreen() {
         {/* Start Driving Button */}
         <button
           onClick={startDrivingDay}
-          className="w-full py-4 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-extrabold rounded-2xl transition-colors cursor-pointer shadow-xl shadow-orange-950/50 text-center text-base tracking-wide flex items-center justify-center gap-2"
+          className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-extrabold rounded-2xl transition-colors cursor-pointer shadow-xl shadow-orange-950/50 text-center text-base tracking-wide flex items-center justify-center gap-2"
         >
           <span>🚀</span>
           <span>Start driving</span>
@@ -164,4 +259,3 @@ export default function MorningScreen() {
     </div>
   )
 }
-

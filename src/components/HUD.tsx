@@ -17,9 +17,10 @@ export default function HUD() {
   const dayPhase = useGameStore((s) => s.dayPhase)
   const isMissionComplete = useGameStore((s) => s.isMissionComplete)
 
-  // Base survival meters (Stage 3)
+  // Base survival meters (Stage 3 & 4)
   const air = useGameStore((s) => s.air)
   const shieldToday = useGameStore((s) => s.shieldToday)
+  const crewHealth = useGameStore((s) => s.crewHealth)
 
   // Battery bar percentage & color
   const batteryPercent =
@@ -37,6 +38,12 @@ export default function HUD() {
   const airTextColor =
     air > 50 ? 'text-cyan-400' : air >= 20 ? 'text-yellow-400' : 'text-red-400'
 
+  // Crew health meter color change
+  const healthColor =
+    crewHealth > 50 ? 'bg-emerald-500' : crewHealth >= 20 ? 'bg-yellow-400' : 'bg-red-500'
+  const healthTextColor =
+    crewHealth > 50 ? 'text-emerald-400' : crewHealth >= 20 ? 'text-yellow-400' : 'text-red-400'
+
   // Distance to base
   const dx = BASE_X - roverX
   const dy = BASE_Y - roverY
@@ -49,7 +56,8 @@ export default function HUD() {
 
   // Day progress
   const timePercent = Math.max(0, Math.min(100, (timeLeft / dayDuration) * 100))
-  const isSunsetWarning = timeLeft <= SUNSET_WARN_SEC && dayPhase !== 'ended' && dayPhase !== 'morning'
+  const isSunsetWarning =
+    timeLeft <= SUNSET_WARN_SEC && dayPhase !== 'ended' && dayPhase !== 'morning'
 
   return (
     <>
@@ -135,7 +143,7 @@ export default function HUD() {
           )}
         </div>
 
-        {/* Top-right: Base Survival Meters (Stage 3) */}
+        {/* Top-right: Base Survival Meters (Air, Shield, Crew health only) */}
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           {/* 1. Air Meter */}
           <div className="bg-black/60 backdrop-blur-sm rounded-xl px-3 py-2 w-48 border border-white/10 shadow-lg">
@@ -166,30 +174,52 @@ export default function HUD() {
               {shieldToday}%
             </div>
           </div>
+
+          {/* 3. Crew Health Meter (Stage 4) */}
+          <div className="bg-black/60 backdrop-blur-sm rounded-xl px-3 py-2 w-48 border border-white/10 shadow-lg">
+            <div className="text-white text-xs font-semibold mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span>❤️</span>
+                <span>Crew Health</span>
+              </span>
+              <span className={`font-mono text-[11px] font-bold ${healthTextColor}`}>
+                {Math.round(crewHealth)}%
+              </span>
+            </div>
+            <div className="relative w-full h-3 bg-gray-700/80 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ease-out ${healthColor}`}
+                style={{ width: `${Math.max(0, Math.min(100, crewHealth))}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* C) Power-off overlay — only when rover ran out of battery during daytime */}
-      {isPoweredOff && dayPhase !== 'ended' && dayPhase !== 'morning' && !isMissionComplete && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto select-none p-4 text-center">
-          <p className="text-white text-3xl md:text-4xl font-bold mb-3 tracking-wide">
-            Rover out of power
-          </p>
-          <p className="text-gray-300 text-sm md:text-base max-w-sm mb-6">
-            The battery reached 0%. Wait for sunset rescue, or tow back to base now.
-          </p>
-          <button
-            onClick={() => {
-              setBattery(batteryCapacity)
-              setIsPoweredOff(false)
-              window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
-            }}
-            className="px-6 py-3.5 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-lg"
-          >
-            Tow Rover to Base & Recharge
-          </button>
-        </div>
-      )}
+      {isPoweredOff &&
+        dayPhase !== 'ended' &&
+        dayPhase !== 'morning' &&
+        !isMissionComplete && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto select-none p-4 text-center">
+            <p className="text-white text-3xl md:text-4xl font-bold mb-3 tracking-wide">
+              Rover out of power
+            </p>
+            <p className="text-gray-300 text-sm md:text-base max-w-sm mb-6">
+              The battery reached 0%. Wait for sunset rescue, or tow back to base now.
+            </p>
+            <button
+              onClick={() => {
+                setBattery(batteryCapacity)
+                setIsPoweredOff(false)
+                window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
+              }}
+              className="px-6 py-3.5 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-lg"
+            >
+              Tow Rover to Base & Recharge
+            </button>
+          </div>
+        )}
     </>
   )
 }

@@ -2,6 +2,7 @@ import GameCanvas from './components/GameCanvas'
 import HUD from './components/HUD'
 import Joystick from './components/Joystick'
 import SunsetOverlay from './components/SunsetOverlay'
+import StormOverlay from './components/StormOverlay'
 import MorningScreen from './components/MorningScreen'
 import ResultCard from './components/ResultCard'
 import MissionPaused from './components/MissionPaused'
@@ -12,6 +13,7 @@ export default function App() {
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
       <GameCanvas />
       <SunsetOverlay />
+      <StormOverlay />
       <HUD />
       <Joystick />
       <MorningScreen />
