@@ -26,6 +26,9 @@ import {
   SCAN_DURATION_SEC,
   SCAN_PROXIMITY_RADIUS,
   CALL_EARTH_BATTERY_COST,
+  STAR_SURVIVAL_DAYS,
+  STAR3_MIN_CREW_HEALTH,
+  STAR3_MIN_AIR,
 } from '../config/gameConfig'
 import { PlanetId, PLANETS } from '../config/planets'
 import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
@@ -40,6 +43,7 @@ import { DonkiPayload } from '../utils/donkiProcessor'
 import { rebalancePowerSplit, getDefaultPowerSplit, PowerSplit } from '../utils/powerRebalance'
 import { generateDiscoverySpots, DiscoverySpot } from '../data/discoverySpots'
 import { selectPhotoForDiscovery, resetPhotoHistory, MarsPhoto } from '../utils/photoSelector'
+import { DayLogEntry, DayOutcome } from '../data/debrief'
 
 export { BASE_X, BASE_Y }
 
@@ -115,13 +119,16 @@ export interface DayEndResult {
 }
 
 interface GameState {
-  // Stage 7A: Start Menu & Planet / Difficulty Mode
+  // Stage 7A & 7B: Start Menu, Planet, Difficulty, Debrief
   isGameStarted: boolean
   commanderName: string
   planet: PlanetId
   difficulty: DifficultyId
   skipTutorial: boolean
   powerBudget: number
+  isDebriefOpen: boolean
+  showDataSourcesModal: boolean
+  dayLogs: DayLogEntry[]
 
   // Rover & Controls
   battery: number
@@ -186,11 +193,9 @@ interface GameState {
   scanError: string | null
   activeDiscovery: ActiveDiscovery | null
 
-  // Stage 7A: Tutorial (Days 1 to 3)
+  // Stage 7A: Tutorial & Comms
   tutorialStep: TutorialStep
   hasMovedSliderDay1: boolean
-
-  // Stage 7A: Call Earth (Comms Delay)
   callEarthState: CallEarthState
   callEarthCountdown: number
   callEarthDelayTotal: number
@@ -228,6 +233,14 @@ interface GameState {
   cancelScan: () => void
   tickScan: (dt: number) => void
   closeDiscoveryPopup: () => void
+
+  // Stage 7B: Debrief & Progression Actions
+  openDebrief: () => void
+  closeDebrief: () => void
+  setShowDataSourcesModal: (v: boolean) => void
+  playAgain: () => void
+  tryHarderMode: () => void
+  switchPlanet: () => void
 }
 
 const saved = loadSavedSettings()
@@ -252,6 +265,9 @@ export const useGameStore = create<GameState>((set, get) => {
     difficulty: initialDifficulty,
     skipTutorial: initialSkipTutorial,
     powerBudget: initialBudget,
+    isDebriefOpen: false,
+    showDataSourcesModal: false,
+    dayLogs: [],
 
     // Rover & Controls
     battery: initialCapacity,
@@ -322,11 +338,13 @@ export const useGameStore = create<GameState>((set, get) => {
     // Launch mission from start menu
     launchMission: ({ commanderName, planet, difficulty, skipTutorial }) => {
       saveSettings({ commanderName, planet, difficulty, skipTutorial })
+      resetPhotoHistory()
       const diffConfig = DIFFICULTIES[difficulty]
       const powerBudget = diffConfig.powerBudget
       const split = getDefaultPowerSplit(powerBudget)
       const cap = BASE_ROVER_CAPACITY + split.rover * ROVER_CAPACITY_PER_POINT
       const tutStep: TutorialStep = skipTutorial ? null : 'day1_sliders'
+      const newSpots = generateDiscoverySpots()
 
       set({
         isGameStarted: true,
@@ -347,11 +365,15 @@ export const useGameStore = create<GameState>((set, get) => {
         hasMovedSliderDay1: false,
         callEarthState: 'idle',
         callEarthCountdown: 0,
+        callEarthDelayTotal: 0,
         callEarthMessage: null,
         totalDiscoveryPoints: 0,
         discoveryPointsToday: 0,
         discoveriesFoundToday: 0,
         isMissionComplete: false,
+        isDebriefOpen: false,
+        dayLogs: [],
+        dayEndResult: null,
         isAirDepleted: false,
         isCrewDepleted: false,
         air: INITIAL_AIR,
@@ -361,13 +383,15 @@ export const useGameStore = create<GameState>((set, get) => {
         crewDamageToday: 0,
         roverStormPenaltyNextDay: false,
         roverPenaltyAppliedToday: false,
+        discoverySpots: newSpots,
+        nearbySpot: null,
+        activeScan: null,
+        activeDiscovery: null,
       })
 
-      // Notify Phaser scene about planet selection
       window.dispatchEvent(new CustomEvent('planet-changed', { detail: { planet } }))
       window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
 
-      // Fetch space weather from NASA DONKI
       get().loadSpaceWeather()
     },
 
@@ -381,6 +405,7 @@ export const useGameStore = create<GameState>((set, get) => {
         activeDiscovery: null,
         activeScan: null,
         tutorialStep: null,
+        isDebriefOpen: false,
       })
     },
 
@@ -416,6 +441,48 @@ export const useGameStore = create<GameState>((set, get) => {
       set({
         callEarthState: 'idle',
         callEarthMessage: null,
+      })
+    },
+
+    openDebrief: () => set({ isDebriefOpen: true }),
+    closeDebrief: () => set({ isDebriefOpen: false }),
+    setShowDataSourcesModal: (v) => set({ showDataSourcesModal: v }),
+
+    playAgain: () => {
+      const state = get()
+      state.launchMission({
+        commanderName: state.commanderName,
+        planet: state.planet,
+        difficulty: state.difficulty,
+        skipTutorial: state.skipTutorial,
+      })
+    },
+
+    tryHarderMode: () => {
+      const state = get()
+      const nextDiff: DifficultyId =
+        state.difficulty === 'explorer'
+          ? 'commander'
+          : state.difficulty === 'commander'
+          ? 'mission_control'
+          : 'mission_control'
+
+      state.launchMission({
+        commanderName: state.commanderName,
+        planet: state.planet,
+        difficulty: nextDiff,
+        skipTutorial: state.skipTutorial,
+      })
+    },
+
+    switchPlanet: () => {
+      const state = get()
+      const nextPlanet: PlanetId = state.planet === 'mars' ? 'moon' : 'mars'
+      state.launchMission({
+        commanderName: state.commanderName,
+        planet: nextPlanet,
+        difficulty: state.difficulty,
+        skipTutorial: state.skipTutorial,
       })
     },
 
@@ -585,7 +652,6 @@ export const useGameStore = create<GameState>((set, get) => {
         stormStartTime = state.dayDuration * (1 - stormRatio)
       }
 
-      // Check Day 2 tutorial (driving intro)
       const day2Tut: TutorialStep =
         !state.skipTutorial && state.day === 2 ? 'day2_driving' : null
 
@@ -609,7 +675,6 @@ export const useGameStore = create<GameState>((set, get) => {
 
     tickDayTimer: (dt) => {
       const state = get()
-      // Pause day timer while discovery celebration popup or tutorial modal is open
       if (state.activeDiscovery !== null || state.tutorialStep === 'day2_driving') return
       if (state.dayPhase !== 'daytime' && state.dayPhase !== 'sunset') return
       if (state.isMissionComplete || state.isAirDepleted || state.isCrewDepleted) return
@@ -729,6 +794,47 @@ export const useGameStore = create<GameState>((set, get) => {
       const dy = state.roverY - BASE_Y
       const isSheltered = Math.sqrt(dx * dx + dy * dy) <= BASE_SAFE_DISTANCE
 
+      // If mid-day crew depletion occurred from storm:
+      // (dayPhase is already guarded to 'daytime'|'sunset' at the top of this fn)
+      if (isDepleted) {
+        const dayLog: DayLogEntry = {
+          day: state.day,
+          planet: state.planet,
+          difficulty: state.difficulty,
+          stormLevel: state.stormLevelToday,
+          stormEvents: [...state.stormEventsToday],
+          spaceWeatherSource: state.spaceWeatherSource,
+          powerSplit: { ...state.powerSplit },
+          shieldStrength: state.shieldToday,
+          stormStrength: STORM_STRENGTHS[state.stormLevelToday],
+          crewDamage: nextCrewDamage,
+          crewHealthBefore: Math.round(state.crewHealthBeforeToday),
+          crewHealthAfter: 0,
+          roverSheltered: isSheltered,
+          madeItHome: isSheltered,
+          airBefore: Math.round(state.air),
+          airAfter: Math.round(state.air),
+          airDrop: 0,
+          discoveriesFound: state.discoveriesFoundToday,
+          discoveryPoints: state.discoveryPointsToday,
+          callEarthUsed: state.callEarthDelayTotal > 0,
+          callEarthTooLate: nextCallMessage?.includes('already started') ?? false,
+          outcome: 'paused',
+        }
+
+        set({
+          timeLeft: 0,
+          dayPhase: 'ended',
+          isControlsLocked: true,
+          isDriving: false,
+          crewHealth: 0,
+          isCrewDepleted: true,
+          isDebriefOpen: true,
+          dayLogs: [...state.dayLogs, dayLog],
+        })
+        return
+      }
+
       if (newTime <= 0) {
         const madeItHome = isSheltered
 
@@ -743,6 +849,43 @@ export const useGameStore = create<GameState>((set, get) => {
         if (state.stormLevelToday === 'none') {
           finalCrewHealth = Math.min(INITIAL_CREW_HEALTH, nextCrewHealth + CREW_HEAL_NO_STORM)
           finalWhy = 'A quiet day. The crew healed a little (+5 health).'
+        }
+
+        const stormPower = STORM_STRENGTHS[state.stormLevelToday]
+        let dayOutcome: DayOutcome = 'calm'
+        if (airDepleted || finalCrewHealth <= 0) {
+          dayOutcome = 'paused'
+        } else if (!madeItHome) {
+          dayOutcome = 'stranded'
+        } else if (nextCrewDamage > 0) {
+          dayOutcome = 'storm_hurt'
+        } else if (state.stormLevelToday !== 'none') {
+          dayOutcome = 'storm_survived'
+        }
+
+        const logEntry: DayLogEntry = {
+          day: state.day,
+          planet: state.planet,
+          difficulty: state.difficulty,
+          stormLevel: state.stormLevelToday,
+          stormEvents: [...state.stormEventsToday],
+          spaceWeatherSource: state.spaceWeatherSource,
+          powerSplit: { ...state.powerSplit },
+          shieldStrength: state.shieldToday,
+          stormStrength: stormPower,
+          crewDamage: nextCrewDamage,
+          crewHealthBefore: Math.round(state.crewHealthBeforeToday),
+          crewHealthAfter: Math.round(finalCrewHealth),
+          roverSheltered: state.stormLevelToday === 'none' ? null : !nextRoverCaughtExposed,
+          madeItHome,
+          airBefore: Math.round(airBefore),
+          airAfter: Math.round(airAfter),
+          airDrop: Math.round(airBefore - airAfter),
+          discoveriesFound: state.discoveriesFoundToday,
+          discoveryPoints: state.discoveryPointsToday,
+          callEarthUsed: state.callEarthDelayTotal > 0,
+          callEarthTooLate: nextCallMessage?.includes('already started') ?? false,
+          outcome: dayOutcome,
         }
 
         const result: DayEndResult = {
@@ -766,11 +909,12 @@ export const useGameStore = create<GameState>((set, get) => {
           roverStormPenaltyApplied: state.roverPenaltyAppliedToday,
           whySentence: finalWhy,
           fact: getRandomFact(),
-          // Discoveries today
           discoveriesToday: state.discoveriesFoundToday,
           pointsToday: state.discoveryPointsToday,
           totalPoints: state.totalDiscoveryPoints,
         }
+
+        const isMissionEnded = airDepleted || isDepleted || finalCrewHealth <= 0
 
         set({
           timeLeft: 0,
@@ -788,6 +932,8 @@ export const useGameStore = create<GameState>((set, get) => {
           nextDayStartBatteryRatio: madeItHome ? 1.0 : 0.5,
           dayEndResult: result,
           stormState: 'passed',
+          dayLogs: [...state.dayLogs, logEntry],
+          isDebriefOpen: isMissionEnded,
         })
         return
       }
@@ -819,11 +965,14 @@ export const useGameStore = create<GameState>((set, get) => {
 
     startNextDay: () => {
       const state = get()
-      if (state.isAirDepleted || state.isCrewDepleted) return
+      if (state.isAirDepleted || state.isCrewDepleted) {
+        set({ isDebriefOpen: true })
+        return
+      }
 
       if (state.day >= state.maxDays) {
         set({
-          isMissionComplete: true,
+          isDebriefOpen: true,
           dayEndResult: null,
           isControlsLocked: true,
           isDriving: false,
@@ -864,6 +1013,7 @@ export const useGameStore = create<GameState>((set, get) => {
         tutorialStep: tutStep,
         callEarthState: 'idle',
         callEarthCountdown: 0,
+        callEarthDelayTotal: 0,
         callEarthMessage: null,
       })
 
@@ -897,6 +1047,8 @@ export const useGameStore = create<GameState>((set, get) => {
         activeDiscovery: null,
         dayEndResult: null,
         isMissionComplete: false,
+        isDebriefOpen: false,
+        dayLogs: [],
         isAirDepleted: false,
         isCrewDepleted: false,
         crewHealth: INITIAL_CREW_HEALTH,
@@ -923,6 +1075,7 @@ export const useGameStore = create<GameState>((set, get) => {
         hasMovedSliderDay1: false,
         callEarthState: 'idle',
         callEarthCountdown: 0,
+        callEarthDelayTotal: 0,
         callEarthMessage: null,
       })
 

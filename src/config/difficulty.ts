@@ -14,6 +14,7 @@ export interface DifficultyConfig {
   powerBudget: number
   commsDelayMultiplier: number
   badgeColor: string
+  discoveryGoal: number // Mission goal in discovery points
 }
 
 export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
@@ -27,6 +28,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
     powerBudget: 100,
     commsDelayMultiplier: 0.5,
     badgeColor: 'text-emerald-300 border-emerald-500/40 bg-emerald-950/40',
+    discoveryGoal: 10,
   },
   commander: {
     id: 'commander',
@@ -38,6 +40,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
     powerBudget: 100,
     commsDelayMultiplier: 1.0,
     badgeColor: 'text-amber-300 border-amber-500/40 bg-amber-950/40',
+    discoveryGoal: 15,
   },
   mission_control: {
     id: 'mission_control',
@@ -49,6 +52,6 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
     powerBudget: 90,
     commsDelayMultiplier: 1.5,
     badgeColor: 'text-purple-300 border-purple-500/40 bg-purple-950/40',
+    discoveryGoal: 20,
   },
 }
-

@@ -6,6 +6,7 @@ import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 export default function StartMenu() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
   const launchMission = useGameStore((s) => s.launchMission)
+  const setShowDataSourcesModal = useGameStore((s) => s.setShowDataSourcesModal)
 
   const saved = loadSavedSettings()
   const [commanderName, setCommanderName] = useState(saved.commanderName || 'Commander')
@@ -202,6 +203,18 @@ export default function StartMenu() {
           <span>🚀</span>
           <span>Launch mission</span>
         </button>
+
+        {/* Data Sources Link */}
+        <div className="flex items-center justify-center pt-0.5">
+          <button
+            type="button"
+            onClick={() => setShowDataSourcesModal(true)}
+            className="text-xs text-sky-400 hover:text-sky-300 underline font-semibold cursor-pointer flex items-center gap-1.5"
+          >
+            <span>🔬</span>
+            <span>Data Sources & NASA Attribution</span>
+          </button>
+        </div>
       </div>
     </div>
   )

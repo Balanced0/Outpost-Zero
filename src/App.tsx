@@ -8,8 +8,8 @@ import ResultCard from './components/ResultCard'
 import DiscoveryPopup from './components/DiscoveryPopup'
 import TutorialHelper from './components/TutorialHelper'
 import StartMenu from './components/StartMenu'
-import MissionPaused from './components/MissionPaused'
-import MissionComplete from './components/MissionComplete'
+import DebriefScreen from './components/DebriefScreen'
+import DataSourcesModal from './components/DataSourcesModal'
 
 export default function App() {
   return (
@@ -23,8 +23,9 @@ export default function App() {
       <MorningScreen />
       <TutorialHelper />
       <ResultCard />
-      <MissionPaused />
-      <MissionComplete />
+      {/* DebriefScreen replaces both MissionPaused and MissionComplete at z-50 */}
+      <DebriefScreen />
+      <DataSourcesModal />
       <StartMenu />
     </div>
   )

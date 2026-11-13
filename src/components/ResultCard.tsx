@@ -234,12 +234,12 @@ export default function ResultCard() {
           </p>
         </div>
 
-        {/* Next Day Button */}
+        {/* Next Day or Mission Debrief Button */}
         <button
           onClick={startNextDay}
           className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm tracking-wide"
         >
-          Start Day {nextDayNumber}
+          {day >= 20 ? 'View Mission Debrief 🚀' : `Start Day ${nextDayNumber}`}
         </button>
       </div>
     </div>

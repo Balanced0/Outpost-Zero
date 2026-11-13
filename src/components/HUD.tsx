@@ -158,15 +158,25 @@ export default function HUD() {
             )}
           </div>
 
-          {/* C) Discoveries Score (Stage 6) */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center justify-between w-52 border border-white/10 shadow-lg pointer-events-auto">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-              <span>💎</span>
-              <span>Discoveries</span>
-              <WhyButton term="scan" />
+          {/* C) Discoveries Score & Goal (Stage 6 & 7B) */}
+          <div className="bg-black/60 backdrop-blur-sm rounded-xl px-3 py-2 flex flex-col gap-1 w-52 border border-white/10 shadow-lg pointer-events-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                <span>💎</span>
+                <span>Discoveries</span>
+                <WhyButton term="scan" />
+              </div>
+              <div className="font-mono text-xs font-bold text-amber-300">
+                {totalDiscoveryPoints} pts
+              </div>
             </div>
-            <div className="font-mono text-xs font-bold text-amber-300">
-              {totalDiscoveryPoints} pts
+            <div className="flex items-center justify-between text-[10px] text-slate-300 pt-0.5 border-t border-white/10">
+              <span className="font-mono">
+                Goal: {totalDiscoveryPoints} / {DIFFICULTIES[difficulty].discoveryGoal} points
+              </span>
+              {totalDiscoveryPoints >= DIFFICULTIES[difficulty].discoveryGoal && (
+                <span className="text-emerald-400 font-bold">✓ Met</span>
+              )}
             </div>
           </div>
 

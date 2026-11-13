@@ -103,3 +103,8 @@ export const SCAN_BATTERY_COST: Record<DiscoveryType, number> = {
 
 // Battery cost to transmit message to Earth (Stage 7A)
 export const CALL_EARTH_BATTERY_COST = 5
+
+// --- STAGE 7B: Stars and Debrief Thresholds ---
+export const STAR_SURVIVAL_DAYS = 20
+export const STAR3_MIN_CREW_HEALTH = 60
+export const STAR3_MIN_AIR = 40
