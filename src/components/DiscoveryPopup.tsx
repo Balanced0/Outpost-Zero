@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/gameStore'
+import { sfx } from '../utils/sound'
 
 export default function DiscoveryPopup() {
   const activeDiscovery = useGameStore((s) => s.activeDiscovery)
@@ -145,7 +146,10 @@ export default function DiscoveryPopup() {
 
         {/* Close / Resume Button */}
         <button
-          onClick={closeDiscoveryPopup}
+          onClick={() => {
+            sfx('click_soft', { volume: 0.6 })
+            closeDiscoveryPopup()
+          }}
           className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm tracking-wide mt-1"
         >
           Resume mission

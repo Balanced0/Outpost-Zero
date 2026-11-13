@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { PLANETS } from '../config/planets'
 import { DIFFICULTIES } from '../config/difficulty'
+import { sfx } from '../utils/sound'
 import {
   STAR_SURVIVAL_DAYS,
   STAR3_MIN_CREW_HEALTH,
@@ -207,7 +208,12 @@ export default function DebriefScreen() {
                 <button
                   key={dayNum}
                   type="button"
-                  onClick={() => entry && setSelectedDayLog(entry)}
+                  onClick={() => {
+                    if (entry) {
+                      sfx('click_soft', { volume: 0.5 })
+                      setSelectedDayLog(entry)
+                    }
+                  }}
                   disabled={!entry}
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono transition-transform cursor-pointer ${dotColor} ${
                     isSelected ? 'ring-2 ring-white scale-110 shadow-md' : 'hover:scale-105'
@@ -299,7 +305,10 @@ export default function DebriefScreen() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={playAgain}
+              onClick={() => {
+                sfx('confirm', { volume: 0.6 })
+                playAgain()
+              }}
               className="py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs shadow-md"
             >
               Play again
@@ -307,7 +316,10 @@ export default function DebriefScreen() {
 
             <button
               type="button"
-              onClick={tryHarderMode}
+              onClick={() => {
+                sfx('confirm', { volume: 0.6 })
+                tryHarderMode()
+              }}
               disabled={isMaxDifficulty}
               className={`py-3 px-4 font-bold rounded-xl transition-colors text-xs shadow-md ${
                 isMaxDifficulty
@@ -320,7 +332,10 @@ export default function DebriefScreen() {
 
             <button
               type="button"
-              onClick={switchPlanet}
+              onClick={() => {
+                sfx('confirm', { volume: 0.6 })
+                switchPlanet()
+              }}
               className="py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs border border-slate-700 shadow-md"
             >
               Switch to {planet === 'mars' ? 'Moon ⚪' : 'Mars 🔴'}
@@ -330,7 +345,10 @@ export default function DebriefScreen() {
           <div className="flex items-center justify-between pt-1">
             <button
               type="button"
-              onClick={returnToMenu}
+              onClick={() => {
+                sfx('toggle', { volume: 0.5 })
+                returnToMenu()
+              }}
               className="text-xs text-slate-400 hover:text-white underline font-semibold cursor-pointer"
             >
               ← Return to Menu

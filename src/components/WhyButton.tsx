@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/gameStore'
+import { sfx } from '../utils/sound'
 
 interface WhyButtonProps {
   term: string
@@ -17,6 +18,7 @@ export default function WhyButton({ term, className = '' }: WhyButtonProps) {
       type="button"
       onClick={(e) => {
         e.stopPropagation()
+        sfx('click_soft', { volume: 0.6 })
         openGlossaryCard(term)
       }}
       title={`What is ${term}?`}

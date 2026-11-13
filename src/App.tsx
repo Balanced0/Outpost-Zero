@@ -11,11 +11,13 @@ import StartMenu from './components/StartMenu'
 import DebriefScreen from './components/DebriefScreen'
 import DataSourcesModal from './components/DataSourcesModal'
 import GlossaryCard from './components/GlossaryCard'
+import SoundToggle from './components/SoundToggle'
 import { useAutoGlossaryCards } from './hooks/useAutoGlossaryCards'
+import { useGameSounds } from './hooks/useGameSounds'
 
 function AppInner() {
-  // Auto-open glossary cards for first-time events
   useAutoGlossaryCards()
+  useGameSounds()
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
@@ -34,6 +36,8 @@ function AppInner() {
       <StartMenu />
       {/* Glossary card at highest z — above everything else */}
       <GlossaryCard />
+      {/* Mute toggle — always visible */}
+      <SoundToggle />
     </div>
   )
 }

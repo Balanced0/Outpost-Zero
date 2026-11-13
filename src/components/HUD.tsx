@@ -3,6 +3,7 @@ import { BASE_SAFE_DISTANCE, SUNSET_WARN_SEC } from '../config/gameConfig'
 import { PLANETS } from '../config/planets'
 import { DIFFICULTIES } from '../config/difficulty'
 import WhyButton from './WhyButton'
+import { sfx } from '../utils/sound'
 
 export default function HUD() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
@@ -186,7 +187,10 @@ export default function HUD() {
               {callEarthState === 'idle' ? (
                 <div className="flex items-center justify-between w-full">
                   <button
-                    onClick={startCallEarth}
+                    onClick={() => {
+                      sfx('switch', { volume: 0.6 })
+                      startCallEarth()
+                    }}
                     disabled={battery < 5}
                     className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow"
                     title="Send a message to NASA Mission Control (costs 5 battery)"

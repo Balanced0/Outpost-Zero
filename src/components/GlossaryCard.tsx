@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { getGlossaryEntry } from '../data/glossary'
+import { sfx } from '../utils/sound'
 
 /**
  * GlossaryCard — centered full-screen overlay card shown when a "?" button is tapped.
@@ -60,7 +61,10 @@ export default function GlossaryCard() {
         {/* Got it! button */}
         <button
           type="button"
-          onClick={closeGlossaryCard}
+          onClick={() => {
+            sfx('confirm', { volume: 0.55 })
+            closeGlossaryCard()
+          }}
           className="w-full py-3.5 px-6 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-sky-900/50 text-base"
         >
           Got it! 👍

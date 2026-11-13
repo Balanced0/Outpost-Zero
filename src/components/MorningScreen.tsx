@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { resetSeenHints } from '../hooks/useAutoGlossaryCards'
+import { sfx } from '../utils/sound'
 import {
   BASE_ROVER_CAPACITY,
   ROVER_CAPACITY_PER_POINT,
@@ -347,7 +348,10 @@ export default function MorningScreen() {
 
                 <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700 rounded-xl px-2 py-0.5">
                   <button
-                    onClick={() => setPowerAlloc(s.key, s.value - 1)}
+                    onClick={() => {
+                      sfx('tick_soft', { volume: 0.5 })
+                      setPowerAlloc(s.key, s.value - 1)
+                    }}
                     disabled={s.value <= 0}
                     className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer font-mono font-bold"
                   >
@@ -357,7 +361,10 @@ export default function MorningScreen() {
                     {s.value}
                   </span>
                   <button
-                    onClick={() => setPowerAlloc(s.key, s.value + 1)}
+                    onClick={() => {
+                      sfx('tick_soft', { volume: 0.5 })
+                      setPowerAlloc(s.key, s.value + 1)
+                    }}
                     disabled={s.value >= powerBudget}
                     className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer font-mono font-bold"
                   >
@@ -371,7 +378,10 @@ export default function MorningScreen() {
                 min="0"
                 max={powerBudget}
                 value={s.value}
-                onChange={(e) => setPowerAlloc(s.key, Number(e.target.value))}
+                onChange={(e) => {
+                  sfx('tick_soft', { volume: 0.35 })
+                  setPowerAlloc(s.key, Number(e.target.value))
+                }}
                 className={`w-full h-2.5 bg-slate-700 rounded-lg cursor-pointer ${s.trackColor}`}
               />
 

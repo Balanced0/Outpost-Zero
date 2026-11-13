@@ -1,5 +1,6 @@
 import { useGameStore } from '../store/gameStore'
 import WhyButton from './WhyButton'
+import { sfx } from '../utils/sound'
 
 export default function ResultCard() {
   const dayEndResult = useGameStore((s) => s.dayEndResult)
@@ -236,7 +237,10 @@ export default function ResultCard() {
 
         {/* Next Day or Mission Debrief Button */}
         <button
-          onClick={startNextDay}
+          onClick={() => {
+            sfx('confirm', { volume: 0.6 })
+            startNextDay()
+          }}
           className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm tracking-wide"
         >
           {day >= 20 ? 'View Mission Debrief 🚀' : `Start Day ${nextDayNumber}`}

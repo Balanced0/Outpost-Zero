@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useGameStore, loadSavedSettings } from '../store/gameStore'
 import { PlanetId, PLANETS } from '../config/planets'
 import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
+import { sfx } from '../utils/sound'
 
 export default function StartMenu() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
@@ -99,7 +100,10 @@ export default function StartMenu() {
             {/* Mars Card */}
             <button
               type="button"
-              onClick={() => setSelectedPlanet('mars')}
+              onClick={() => {
+                sfx('toggle', { volume: 0.5 })
+                setSelectedPlanet('mars')
+              }}
               className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
                 selectedPlanet === 'mars'
                   ? 'bg-orange-950/60 border-orange-500 shadow-lg shadow-orange-950/50 scale-[1.02]'
@@ -123,7 +127,10 @@ export default function StartMenu() {
             {/* Moon Card */}
             <button
               type="button"
-              onClick={() => setSelectedPlanet('moon')}
+              onClick={() => {
+                sfx('toggle', { volume: 0.5 })
+                setSelectedPlanet('moon')
+              }}
               className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
                 selectedPlanet === 'moon'
                   ? 'bg-slate-800/90 border-cyan-400 shadow-lg shadow-cyan-950/50 scale-[1.02]'
@@ -159,7 +166,10 @@ export default function StartMenu() {
                 <button
                   key={diffKey}
                   type="button"
-                  onClick={() => setSelectedDifficulty(diffKey)}
+                  onClick={() => {
+                    sfx('click_soft', { volume: 0.55 })
+                    setSelectedDifficulty(diffKey)
+                  }}
                   className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 ${
                     isSelected
                       ? 'bg-slate-800 border-amber-400 shadow-md scale-[1.02]'
