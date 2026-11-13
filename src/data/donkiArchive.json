@@ -1,0 +1,263 @@
+{
+  "source": "saved",
+  "windowStart": "2024-05-01",
+  "windowEnd": "2024-05-20",
+  "days": [
+    {
+      "date": "2024-05-01",
+      "level": "minor",
+      "events": [
+        "M1.8 solar flare",
+        "M1.9 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-02",
+      "level": "minor",
+      "events": [
+        "M1.0 solar flare",
+        "M2.7 solar flare",
+        "Geomagnetic storm (Kp 6.67)"
+      ]
+    },
+    {
+      "date": "2024-05-03",
+      "level": "strong",
+      "events": [
+        "M2.7 solar flare",
+        "X1.6 solar flare",
+        "M4.4 solar flare",
+        "M1.2 solar flare",
+        "M1.0 solar flare",
+        "M2.4 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-04",
+      "level": "minor",
+      "events": [
+        "M1.6 solar flare",
+        "M9.1 solar flare",
+        "M1.5 solar flare",
+        "M1.3 solar flare",
+        "M3.2 solar flare",
+        "M9.0 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-05",
+      "level": "strong",
+      "events": [
+        "M8.4 solar flare",
+        "X1.3 solar flare",
+        "M1.3 solar flare",
+        "M2.3 solar flare",
+        "M7.4 solar flare",
+        "X1.2 solar flare",
+        "M2.2 solar flare",
+        "M1.0 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-06",
+      "level": "strong",
+      "events": [
+        "M1.6 solar flare",
+        "M1.3 solar flare",
+        "X4.5 solar flare",
+        "M1.5 solar flare",
+        "M1.2 solar flare",
+        "M4.3 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-07",
+      "level": "minor",
+      "events": [
+        "M2.6 solar flare",
+        "M5.1 solar flare",
+        "M1.3 solar flare",
+        "M1.4 solar flare",
+        "M2.4 solar flare",
+        "M1.5 solar flare",
+        "M1.0 solar flare",
+        "M8.2 solar flare",
+        "M2.1 solar flare",
+        "M1.2 solar flare",
+        "M3.3 solar flare",
+        "M1.6 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-08",
+      "level": "strong",
+      "events": [
+        "X1.0 solar flare",
+        "M3.4 solar flare",
+        "M1.8 solar flare",
+        "M1.9 solar flare",
+        "M3.5 solar flare",
+        "M7.1 solar flare",
+        "M4.5 solar flare",
+        "M2.1 solar flare",
+        "M4.1 solar flare",
+        "M8.6 solar flare",
+        "M7.9 solar flare",
+        "M2.9 solar flare",
+        "M2.0 solar flare",
+        "M1.7 solar flare",
+        "M9.8 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-09",
+      "level": "strong",
+      "events": [
+        "M1.8 solar flare",
+        "M4.0 solar flare",
+        "M4.5 solar flare",
+        "M1.7 solar flare",
+        "M1.2 solar flare",
+        "M2.3 solar flare",
+        "M2.4 solar flare",
+        "M2.1 solar flare",
+        "X2.2 solar flare",
+        "M3.1 solar flare",
+        "M2.9 solar flare",
+        "M3.7 solar flare",
+        "M1.0 solar flare",
+        "X1.1 solar flare",
+        "M2.6 solar flare",
+        "M1.5 solar flare",
+        "Solar energetic particle (SEP) event"
+      ]
+    },
+    {
+      "date": "2024-05-10",
+      "level": "strong",
+      "events": [
+        "M1.3 solar flare",
+        "M1.4 solar flare",
+        "X3.9 solar flare",
+        "M2.2 solar flare",
+        "M5.9 solar flare",
+        "M1.2 solar flare",
+        "M1.1 solar flare",
+        "M1.7 solar flare",
+        "M2.0 solar flare",
+        "M1.9 solar flare",
+        "M3.8 solar flare",
+        "M2.4 solar flare",
+        "Geomagnetic storm (Kp 9)",
+        "Solar energetic particle (SEP) event"
+      ]
+    },
+    {
+      "date": "2024-05-11",
+      "level": "strong",
+      "events": [
+        "X5.8 solar flare",
+        "M1.3 solar flare",
+        "M1.2 solar flare",
+        "M1.4 solar flare",
+        "M1.7 solar flare",
+        "M3.1 solar flare",
+        "M1.6 solar flare",
+        "X1.5 solar flare",
+        "M8.8 solar flare",
+        "M2.9 solar flare",
+        "Solar energetic particle (SEP) event"
+      ]
+    },
+    {
+      "date": "2024-05-12",
+      "level": "strong",
+      "events": [
+        "M3.2 solar flare",
+        "M2.4 solar flare",
+        "M1.6 solar flare",
+        "M1.0 solar flare",
+        "M1.5 solar flare",
+        "X1.0 solar flare",
+        "M4.8 solar flare",
+        "M1.1 solar flare",
+        "Geomagnetic storm (Kp 6.33)"
+      ]
+    },
+    {
+      "date": "2024-05-13",
+      "level": "strong",
+      "events": [
+        "M1.2 solar flare",
+        "M1.4 solar flare",
+        "M4.9 solar flare",
+        "M6.6 solar flare",
+        "M3.7 solar flare",
+        "M1.5 solar flare",
+        "M1.0 solar flare",
+        "Solar energetic particle (SEP) event"
+      ]
+    },
+    {
+      "date": "2024-05-14",
+      "level": "strong",
+      "events": [
+        "M2.5 solar flare",
+        "X1.7 solar flare",
+        "X1.2 solar flare",
+        "X8.7 solar flare",
+        "M4.4 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-15",
+      "level": "strong",
+      "events": [
+        "X3.4 solar flare",
+        "M3.5 solar flare",
+        "M2.9 solar flare",
+        "M3.2 solar flare",
+        "X2.9 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-16",
+      "level": "minor",
+      "events": [
+        "M1.0 solar flare",
+        "Geomagnetic storm (Kp 6)"
+      ]
+    },
+    {
+      "date": "2024-05-17",
+      "level": "minor",
+      "events": [
+        "M7.2 solar flare",
+        "Geomagnetic storm (Kp 6)"
+      ]
+    },
+    {
+      "date": "2024-05-18",
+      "level": "none",
+      "events": [
+        "Quiet space weather"
+      ]
+    },
+    {
+      "date": "2024-05-19",
+      "level": "minor",
+      "events": [
+        "M1.9 solar flare",
+        "M2.5 solar flare",
+        "M1.6 solar flare"
+      ]
+    },
+    {
+      "date": "2024-05-20",
+      "level": "none",
+      "events": [
+        "Quiet space weather"
+      ]
+    }
+  ]
+}

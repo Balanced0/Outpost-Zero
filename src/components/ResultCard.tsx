@@ -21,6 +21,8 @@ export default function ResultCard() {
     airAfter,
     powerSplit,
     stormLevel,
+    stormDate,
+    stormEvents,
     shieldStrength,
     crewHealthBefore,
     crewHealthAfter,
@@ -33,9 +35,14 @@ export default function ResultCard() {
   const nextDayNumber = day + 1
   const airDiff = airAfter - airBefore
 
+  const eventsDescription =
+    stormEvents && stormEvents.length > 0 && !stormEvents[0].toLowerCase().includes('quiet')
+      ? stormEvents.join(', ')
+      : 'quiet day'
+
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 pointer-events-auto animate-fade-in select-none overflow-y-auto">
-      <div className="bg-slate-900/95 border-2 border-orange-500/50 rounded-3xl max-w-md w-full p-5 md:p-6 text-white shadow-2xl flex flex-col gap-3.5 my-auto">
+      <div className="bg-slate-900/95 border-2 border-orange-500/50 rounded-3xl max-w-md w-full p-5 md:p-6 text-white shadow-2xl flex flex-col gap-3 my-auto">
         {/* Title */}
         <div className="text-center">
           <span className="text-[11px] font-semibold tracking-wider text-orange-400 uppercase">
@@ -46,7 +53,7 @@ export default function ResultCard() {
 
         {/* Status Badge: Home safe vs Stranded */}
         <div
-          className={`rounded-2xl p-3 border flex items-center gap-3 ${
+          className={`rounded-2xl p-2.5 border flex items-center gap-3 ${
             madeItHome
               ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
               : 'bg-amber-950/60 border-amber-500/40 text-amber-200'
@@ -67,7 +74,7 @@ export default function ResultCard() {
           </div>
         </div>
 
-        {/* Space Weather & Storm Report (Stage 4) */}
+        {/* Space Weather & Storm Report (Stage 4 & 5) */}
         <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/80 flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold flex items-center gap-1.5 text-slate-300">
@@ -89,6 +96,11 @@ export default function ResultCard() {
                 ? 'Minor Storm'
                 : 'Strong Storm'}
             </span>
+          </div>
+
+          {/* NASA DONKI Real Event Citation (Stage 5) */}
+          <div className="text-[11px] text-amber-300 bg-slate-900/80 rounded-xl px-2.5 py-1.5 border border-slate-700/60 leading-snug font-medium">
+            Real event today: {eventsDescription} (NASA DONKI, {stormDate})
           </div>
 
           {/* Plain "Why" sentence */}
@@ -163,23 +175,23 @@ export default function ResultCard() {
 
         {/* Exploration Stats */}
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700/80">
+          <div className="bg-slate-800/80 rounded-2xl p-2 border border-slate-700/80">
             <span className="text-[10px] text-slate-400 block">🚗 Distance Driven</span>
-            <span className="text-base font-bold font-mono text-slate-100">
+            <span className="text-sm font-bold font-mono text-slate-100">
               {distanceDriven} m
             </span>
           </div>
 
-          <div className="bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700/80">
+          <div className="bg-slate-800/80 rounded-2xl p-2 border border-slate-700/80">
             <span className="text-[10px] text-slate-400 block">🔋 Battery Left</span>
-            <span className="text-base font-bold font-mono text-slate-100">
+            <span className="text-sm font-bold font-mono text-slate-100">
               {batteryLeft} / {batteryCapacity}
             </span>
           </div>
         </div>
 
         {/* NASA Fact Box */}
-        <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-3">
+        <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-2.5">
           <div className="flex items-center gap-1 text-[11px] font-semibold text-sky-400 mb-0.5">
             <span>🚀</span>
             <span>Did you know?</span>

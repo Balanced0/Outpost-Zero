@@ -24,7 +24,13 @@ import {
   ROVER_STORM_PENALTY,
 } from '../config/gameConfig'
 import { getRandomFact } from '../data/facts'
-import { getStormForDay, resetStormSchedule, StormLevel } from '../data/stormSource'
+import {
+  getStormForDay,
+  fetchMissionSpaceWeather,
+  StormLevel,
+  SpaceWeatherSource,
+} from '../data/stormSource'
+import { DonkiPayload } from '../utils/donkiProcessor'
 import { rebalancePowerSplit, PowerSplit } from '../utils/powerRebalance'
 
 export { BASE_X, BASE_Y }
@@ -42,11 +48,14 @@ export interface DayEndResult {
   airAfter: number
   powerSplit: PowerSplit
   stormLevel: StormLevel
+  stormDate: string
+  stormEvents: string[]
+  spaceWeatherSource: SpaceWeatherSource
   shieldStrength: number
   crewHealthBefore: number
   crewHealthAfter: number
   crewDamage: number
-  roverSheltered: boolean | null // null if no storm
+  roverSheltered: boolean | null
   roverStormPenaltyApplied: boolean
   whySentence: string
   fact: string
@@ -84,20 +93,27 @@ interface GameState {
   airBeforeToday: number
   isAirDepleted: boolean
 
-  // Stage 4: Crew Health & Storms
+  // Crew Health & Storms
   crewHealth: number
   crewHealthBeforeToday: number
   crewDamageToday: number
   isCrewDepleted: boolean
   stormLevelToday: StormLevel
+  stormDateToday: string
+  stormEventsToday: string[]
   stormState: StormState
-  stormStartTime: number // timeLeft at which storm starts
-  stormCountdown: number // countdown seconds during warning
+  stormStartTime: number
+  stormCountdown: number
   isRoverSheltered: boolean
   roverCaughtExposedToday: boolean
-  roverStormPenaltyNextDay: boolean // flag to reduce capacity next morning
+  roverStormPenaltyNextDay: boolean
   roverPenaltyAppliedToday: boolean
   whySentenceToday: string
+
+  // Stage 5: NASA Space Weather Pipeline
+  missionSpaceWeather: DonkiPayload | null
+  isLoadingSpaceWeather: boolean
+  spaceWeatherSource: SpaceWeatherSource
 
   // Actions
   setBattery: (v: number) => void
@@ -111,6 +127,7 @@ interface GameState {
   addDistanceDriven: (meters: number) => void
   startNextDay: () => void
   resetMission: () => void
+  loadSpaceWeather: () => Promise<void>
 }
 
 const initialCapacity =
@@ -147,12 +164,13 @@ export const useGameStore = create<GameState>((set, get) => {
     airBeforeToday: INITIAL_AIR,
     isAirDepleted: false,
 
-    // Stage 4
     crewHealth: INITIAL_CREW_HEALTH,
     crewHealthBeforeToday: INITIAL_CREW_HEALTH,
     crewDamageToday: 0,
     isCrewDepleted: false,
     stormLevelToday: initialStorm.level,
+    stormDateToday: initialStorm.date,
+    stormEventsToday: initialStorm.events,
     stormState: 'idle',
     stormStartTime: -1,
     stormCountdown: STORM_WARNING_SEC,
@@ -161,6 +179,37 @@ export const useGameStore = create<GameState>((set, get) => {
     roverStormPenaltyNextDay: false,
     roverPenaltyAppliedToday: false,
     whySentenceToday: '',
+
+    // Stage 5 State
+    missionSpaceWeather: null,
+    isLoadingSpaceWeather: true,
+    spaceWeatherSource: 'saved',
+
+    loadSpaceWeather: async () => {
+      set({ isLoadingSpaceWeather: true })
+      try {
+        const payload = await fetchMissionSpaceWeather()
+        const storm = getStormForDay(get().day, payload)
+        set({
+          missionSpaceWeather: payload,
+          spaceWeatherSource: payload.source,
+          stormLevelToday: storm.level,
+          stormDateToday: storm.date,
+          stormEventsToday: storm.events,
+          isLoadingSpaceWeather: false,
+        })
+      } catch (err) {
+        console.error('Error loading space weather:', err)
+        const fallbackStorm = getStormForDay(get().day)
+        set({
+          spaceWeatherSource: 'saved',
+          stormLevelToday: fallbackStorm.level,
+          stormDateToday: fallbackStorm.date,
+          stormEventsToday: fallbackStorm.events,
+          isLoadingSpaceWeather: false,
+        })
+      }
+    },
 
     setBattery: (v) =>
       set((state) => ({
@@ -180,14 +229,12 @@ export const useGameStore = create<GameState>((set, get) => {
     startDrivingDay: () => {
       const state = get()
 
-      // Calculate today's rover battery capacity
       const rawCapacity =
         BASE_ROVER_CAPACITY + state.powerSplit.rover * ROVER_CAPACITY_PER_POINT
       const penalty = state.roverStormPenaltyNextDay ? ROVER_STORM_PENALTY : 0
       const capacity = Math.max(20, rawCapacity - penalty)
       const startBattery = capacity * state.nextDayStartBatteryRatio
 
-      // Schedule storm timing if there's a storm today
       let stormStartTime = -1
       let stormState: StormState = 'passed'
 
@@ -207,7 +254,7 @@ export const useGameStore = create<GameState>((set, get) => {
         crewHealthBeforeToday: state.crewHealth,
         crewDamageToday: 0,
         roverPenaltyAppliedToday: state.roverStormPenaltyNextDay,
-        roverStormPenaltyNextDay: false, // penalty cleared after being applied
+        roverStormPenaltyNextDay: false,
         roverCaughtExposedToday: false,
         whySentenceToday: '',
         stormStartTime,
@@ -233,7 +280,6 @@ export const useGameStore = create<GameState>((set, get) => {
 
       const newTime = Math.max(0, state.timeLeft - dt)
 
-      // Live Storm Logic
       let nextStormState = state.stormState
       let nextCountdown = state.stormCountdown
       let nextCrewHealth = state.crewHealth
@@ -247,17 +293,15 @@ export const useGameStore = create<GameState>((set, get) => {
         const warnStart = state.stormStartTime + STORM_WARNING_SEC
         const stormEnd = state.stormStartTime - STORM_DURATION_SEC
 
-        // 1. Warning phase
         if (newTime <= warnStart && newTime > state.stormStartTime) {
           nextStormState = 'warning'
-          nextCountdown = Math.max(1, Math.min(STORM_WARNING_SEC, Math.ceil(newTime - state.stormStartTime)))
-        }
-        // 2. Active storm phase
-        else if (newTime <= state.stormStartTime && newTime > stormEnd) {
+          nextCountdown = Math.max(
+            1,
+            Math.min(STORM_WARNING_SEC, Math.ceil(newTime - state.stormStartTime))
+          )
+        } else if (newTime <= state.stormStartTime && newTime > stormEnd) {
           nextStormState = 'active'
-        }
-        // 3. Storm just ended! Apply resolution
-        else if (newTime <= stormEnd && state.stormState === 'active') {
+        } else if (newTime <= stormEnd && state.stormState === 'active') {
           nextStormState = 'passed'
 
           const dx = state.roverX - BASE_X
@@ -270,7 +314,6 @@ export const useGameStore = create<GameState>((set, get) => {
             nextRoverPenaltyNextDay = true
           }
 
-          // Damage calculation
           const stormPower = STORM_STRENGTHS[state.stormLevelToday]
           const damage = Math.round(
             Math.max(0, stormPower - state.shieldToday) * CREW_DAMAGE_MULTIPLIER
@@ -289,22 +332,18 @@ export const useGameStore = create<GameState>((set, get) => {
         }
       }
 
-      // Proximity check for rover shelter
       const dx = state.roverX - BASE_X
       const dy = state.roverY - BASE_Y
       const isSheltered = Math.sqrt(dx * dx + dy * dy) <= BASE_SAFE_DISTANCE
 
-      // Check if Day is over
       if (newTime <= 0) {
         const madeItHome = isSheltered
 
-        // Air calculation
         const airRefill = state.powerSplit.air * AIR_REFILL_MULTIPLIER
         const airBefore = state.air
         const airAfter = Math.max(0, Math.min(100, airBefore - AIR_DAILY_DROP + airRefill))
         const airDepleted = airAfter <= 0
 
-        // Crew healing on quiet days
         let finalCrewHealth = nextCrewHealth
         let finalWhy = nextWhySentence
 
@@ -323,6 +362,9 @@ export const useGameStore = create<GameState>((set, get) => {
           airAfter: Math.round(airAfter),
           powerSplit: { ...state.powerSplit },
           stormLevel: state.stormLevelToday,
+          stormDate: state.stormDateToday,
+          stormEvents: state.stormEventsToday,
+          spaceWeatherSource: state.spaceWeatherSource,
           shieldStrength: state.shieldToday,
           crewHealthBefore: Math.round(state.crewHealthBeforeToday),
           crewHealthAfter: Math.round(finalCrewHealth),
@@ -350,7 +392,6 @@ export const useGameStore = create<GameState>((set, get) => {
         return
       }
 
-      // Determine daytime vs sunset phase
       let phase: DayPhase = 'daytime'
       if (newTime <= SUNSET_WARN_SEC) {
         phase = 'sunset'
@@ -388,7 +429,7 @@ export const useGameStore = create<GameState>((set, get) => {
       }
 
       const nextDay = state.day + 1
-      const nextStorm = getStormForDay(nextDay)
+      const nextStorm = getStormForDay(nextDay, state.missionSpaceWeather)
 
       set({
         day: nextDay,
@@ -402,6 +443,8 @@ export const useGameStore = create<GameState>((set, get) => {
         roverX: BASE_X,
         roverY: BASE_Y,
         stormLevelToday: nextStorm.level,
+        stormDateToday: nextStorm.date,
+        stormEventsToday: nextStorm.events,
         stormState: 'idle',
         stormStartTime: -1,
         stormCountdown: STORM_WARNING_SEC,
@@ -414,8 +457,6 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     resetMission: () => {
-      resetStormSchedule()
-      const firstStorm = getStormForDay(1)
       const defaultCapacity =
         BASE_ROVER_CAPACITY + DEFAULT_POWER_SPLIT.rover * ROVER_CAPACITY_PER_POINT
 
@@ -443,7 +484,6 @@ export const useGameStore = create<GameState>((set, get) => {
         battery: defaultCapacity,
         roverX: BASE_X,
         roverY: BASE_Y,
-        stormLevelToday: firstStorm.level,
         stormState: 'idle',
         stormStartTime: -1,
         stormCountdown: STORM_WARNING_SEC,
@@ -455,6 +495,7 @@ export const useGameStore = create<GameState>((set, get) => {
       })
 
       window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
+      get().loadSpaceWeather()
     },
   }
 })
