@@ -62,3 +62,41 @@ export const STORM_DURATION_SEC = 15 // Storm duration
 
 // Rover penalty when caught exposed at storm end
 export const ROVER_STORM_PENALTY = 30 // Reduced battery capacity next morning
+
+// --- STAGE 6: Discoveries & Scanning Balance ---
+
+export type DiscoveryType = 'rock' | 'riverbed' | 'ice'
+
+export const DISCOVERY_TOTAL_SPOTS = 12
+
+// Distribution counts among the 12 spots
+export const DISCOVERY_COUNTS: Record<DiscoveryType, number> = {
+  rock: 5,
+  riverbed: 4,
+  ice: 3,
+}
+
+// Point values
+export const DISCOVERY_POINTS: Record<DiscoveryType, number> = {
+  rock: 1,
+  riverbed: 2,
+  ice: 4,
+}
+
+// Distance ranges from base (meters)
+export const DISCOVERY_DISTANCES: Record<DiscoveryType, { min: number; max: number }> = {
+  rock: { min: 300, max: 900 },
+  riverbed: { min: 900, max: 1600 },
+  ice: { min: 1600, max: 1920 },
+}
+
+// Scanning parameters
+export const SCAN_PROXIMITY_RADIUS = 60 // Must be within 60m of spot to scan
+export const SCAN_DURATION_SEC = 3.0 // 3 seconds to complete scan
+
+// Battery cost to execute scan
+export const SCAN_BATTERY_COST: Record<DiscoveryType, number> = {
+  rock: 8,
+  riverbed: 12,
+  ice: 15,
+}

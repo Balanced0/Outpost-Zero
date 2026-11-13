@@ -5,6 +5,7 @@ import SunsetOverlay from './components/SunsetOverlay'
 import StormOverlay from './components/StormOverlay'
 import MorningScreen from './components/MorningScreen'
 import ResultCard from './components/ResultCard'
+import DiscoveryPopup from './components/DiscoveryPopup'
 import MissionPaused from './components/MissionPaused'
 import MissionComplete from './components/MissionComplete'
 
@@ -16,6 +17,7 @@ export default function App() {
       <StormOverlay />
       <HUD />
       <Joystick />
+      <DiscoveryPopup />
       <MorningScreen />
       <ResultCard />
       <MissionPaused />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import {
   TOTAL_POWER_BUDGET,
@@ -8,6 +8,7 @@ import {
   AIR_REFILL_MULTIPLIER,
   ROVER_STORM_PENALTY,
 } from '../config/balance'
+import WhyButton from './WhyButton'
 
 function formatDonkiDate(dateStr: string): string {
   if (!dateStr || dateStr.startsWith('Simulated')) return dateStr
@@ -25,9 +26,6 @@ function formatDonkiDate(dateStr: string): string {
 }
 
 export default function MorningScreen() {
-  const [showRadiationWhy, setShowRadiationWhy] = useState(false)
-  const [showFlareWhy, setShowFlareWhy] = useState(false)
-
   const day = useGameStore((s) => s.day)
   const dayPhase = useGameStore((s) => s.dayPhase)
   const isMissionComplete = useGameStore((s) => s.isMissionComplete)
@@ -101,15 +99,15 @@ export default function MorningScreen() {
     },
     saved: {
       label: 'Saved NASA data',
-      className: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/50',
+      className: 'bg-blue-500/20 text-blue-300 border-blue-400/50',
     },
     simulated: {
-      label: 'Simulated',
-      className: 'bg-slate-500/20 text-slate-300 border-slate-400/40',
+      label: 'Simulated profile',
+      className: 'bg-purple-500/20 text-purple-300 border-purple-400/50',
     },
   }[spaceWeatherSource]
 
-  // Space weather config
+  // Space weather label and descriptions
   const weatherConfig = {
     none: {
       label: 'Calm',
@@ -143,6 +141,7 @@ export default function MorningScreen() {
       icon: '🫁',
       value: powerSplit.air,
       description: 'Keeps the astronauts breathing.',
+      whyTerm: null,
       trackColor: 'accent-cyan-400',
       statLabel: `Refill: +${projectedAirRefill}% (${isAirPositive ? '+' : ''}${airNetChange}% net / day)`,
       statColor: isAirPositive ? 'text-emerald-400' : 'text-amber-400',
@@ -152,7 +151,8 @@ export default function MorningScreen() {
       label: 'Shield',
       icon: '🛡️',
       value: powerSplit.shield,
-      description: 'Protects the base from radiation. (Storms are coming soon!)',
+      description: 'Protects the base from radiation.',
+      whyTerm: 'shield' as const,
       trackColor: 'accent-purple-400',
       statLabel: `Defense strength: ${powerSplit.shield}%`,
       statColor: 'text-purple-300',
@@ -163,6 +163,7 @@ export default function MorningScreen() {
       icon: '🚗',
       value: powerSplit.rover,
       description: 'More power means a bigger battery for exploring.',
+      whyTerm: 'rover battery' as const,
       trackColor: 'accent-orange-400',
       statLabel: `Battery capacity: ${projectedCapacity} units${
         roverPenaltyNextDay ? ' (-30 storm penalty)' : ''
@@ -239,13 +240,7 @@ export default function MorningScreen() {
                 <span className="text-amber-400 font-semibold underline decoration-dotted underline-offset-2">
                   radiation
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setShowRadiationWhy((v) => !v)}
-                  className="px-1.5 py-0.5 bg-blue-600/60 hover:bg-blue-500 text-[10px] font-bold rounded-md text-white border border-blue-400/40 cursor-pointer transition-colors"
-                >
-                  Why?
-                </button>
+                <WhyButton term="radiation" />
                 <span>
                   {stormLevelToday === 'minor'
                     ? 'is coming. Shield up a little.'
@@ -264,13 +259,10 @@ export default function MorningScreen() {
                 Recorded NASA Observations
               </span>
               {hasSolarFlare && (
-                <button
-                  type="button"
-                  onClick={() => setShowFlareWhy((v) => !v)}
-                  className="text-[10px] text-sky-400 hover:text-sky-300 font-bold underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  <span>What is a solar flare?</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-sky-400 font-medium">Solar flare?</span>
+                  <WhyButton term="solar flare" />
+                </div>
               )}
             </div>
             <div className="text-slate-200 flex flex-wrap gap-1.5">
@@ -285,46 +277,6 @@ export default function MorningScreen() {
               ))}
             </div>
           </div>
-
-          {/* Radiation "Why?" Popup */}
-          {showRadiationWhy && (
-            <div className="mt-1 bg-blue-950/95 border border-blue-400/50 rounded-xl p-3 text-xs text-sky-200 shadow-xl flex flex-col gap-2 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sky-300 flex items-center gap-1">
-                  <span>ℹ️</span> About Space Radiation
-                </span>
-                <button
-                  onClick={() => setShowRadiationWhy(false)}
-                  className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="leading-relaxed">
-                Radiation is invisible energy from the Sun. Too much can make astronauts sick.
-              </p>
-            </div>
-          )}
-
-          {/* Solar Flare "Why?" Popup */}
-          {showFlareWhy && (
-            <div className="mt-1 bg-blue-950/95 border border-blue-400/50 rounded-xl p-3 text-xs text-sky-200 shadow-xl flex flex-col gap-2 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sky-300 flex items-center gap-1">
-                  <span>☀️</span> About Solar Flares
-                </span>
-                <button
-                  onClick={() => setShowFlareWhy(false)}
-                  className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="leading-relaxed">
-                A solar flare is a sudden flash of energy from the Sun.
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Sliders Container */}
@@ -335,9 +287,10 @@ export default function MorningScreen() {
               className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/80 flex flex-col gap-1.5 shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <span className="text-base">{s.icon}</span>
                   <span className="font-bold text-sm text-slate-100">{s.label}</span>
+                  {s.whyTerm && <WhyButton term={s.whyTerm} />}
                 </div>
 
                 <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700 rounded-xl px-2 py-0.5">

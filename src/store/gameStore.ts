@@ -22,6 +22,9 @@ import {
   STORM_WARNING_SEC,
   STORM_DURATION_SEC,
   ROVER_STORM_PENALTY,
+  DiscoveryType,
+  SCAN_DURATION_SEC,
+  SCAN_PROXIMITY_RADIUS,
 } from '../config/gameConfig'
 import { getRandomFact } from '../data/facts'
 import {
@@ -32,11 +35,25 @@ import {
 } from '../data/stormSource'
 import { DonkiPayload } from '../utils/donkiProcessor'
 import { rebalancePowerSplit, PowerSplit } from '../utils/powerRebalance'
+import { generateDiscoverySpots, DiscoverySpot } from '../data/discoverySpots'
+import { selectPhotoForDiscovery, resetPhotoHistory, MarsPhoto } from '../utils/photoSelector'
 
 export { BASE_X, BASE_Y }
 
 export type DayPhase = 'morning' | 'daytime' | 'sunset' | 'ended'
 export type StormState = 'idle' | 'warning' | 'active' | 'passed'
+
+export interface ActiveScan {
+  spotId: string
+  type: DiscoveryType
+  elapsed: number
+  duration: number
+}
+
+export interface ActiveDiscovery {
+  spot: DiscoverySpot
+  photo: MarsPhoto | null
+}
 
 export interface DayEndResult {
   day: number
@@ -59,6 +76,10 @@ export interface DayEndResult {
   roverStormPenaltyApplied: boolean
   whySentence: string
   fact: string
+  // Stage 6 Discoveries
+  discoveriesToday: number
+  pointsToday: number
+  totalPoints: number
 }
 
 interface GameState {
@@ -110,10 +131,20 @@ interface GameState {
   roverPenaltyAppliedToday: boolean
   whySentenceToday: string
 
-  // Stage 5: NASA Space Weather Pipeline
+  // Space Weather Pipeline
   missionSpaceWeather: DonkiPayload | null
   isLoadingSpaceWeather: boolean
   spaceWeatherSource: SpaceWeatherSource
+
+  // Stage 6: Discoveries & Scanning
+  discoverySpots: DiscoverySpot[]
+  totalDiscoveryPoints: number
+  discoveryPointsToday: number
+  discoveriesFoundToday: number
+  nearbySpot: DiscoverySpot | null
+  activeScan: ActiveScan | null
+  scanError: string | null
+  activeDiscovery: ActiveDiscovery | null
 
   // Actions
   setBattery: (v: number) => void
@@ -128,6 +159,13 @@ interface GameState {
   startNextDay: () => void
   resetMission: () => void
   loadSpaceWeather: () => Promise<void>
+
+  // Discovery Actions
+  setNearbySpot: (spot: DiscoverySpot | null) => void
+  startScan: () => void
+  cancelScan: () => void
+  tickScan: (dt: number) => void
+  closeDiscoveryPopup: () => void
 }
 
 const initialCapacity =
@@ -135,6 +173,7 @@ const initialCapacity =
 
 export const useGameStore = create<GameState>((set, get) => {
   const initialStorm = getStormForDay(1)
+  const initialSpots = generateDiscoverySpots(42)
 
   return {
     battery: initialCapacity,
@@ -180,10 +219,19 @@ export const useGameStore = create<GameState>((set, get) => {
     roverPenaltyAppliedToday: false,
     whySentenceToday: '',
 
-    // Stage 5 State
     missionSpaceWeather: null,
     isLoadingSpaceWeather: true,
     spaceWeatherSource: 'saved',
+
+    // Stage 6 Discoveries initial state
+    discoverySpots: initialSpots,
+    totalDiscoveryPoints: 0,
+    discoveryPointsToday: 0,
+    discoveriesFoundToday: 0,
+    nearbySpot: null,
+    activeScan: null,
+    scanError: null,
+    activeDiscovery: null,
 
     loadSpaceWeather: async () => {
       set({ isLoadingSpaceWeather: true })
@@ -265,6 +313,9 @@ export const useGameStore = create<GameState>((set, get) => {
         isControlsLocked: false,
         isDriving: false,
         isPoweredOff: false,
+        activeScan: null,
+        scanError: null,
+        activeDiscovery: null,
       })
     },
 
@@ -273,8 +324,118 @@ export const useGameStore = create<GameState>((set, get) => {
         distanceDrivenToday: state.distanceDrivenToday + meters,
       })),
 
+    // --- Stage 6: Discovery Scanning System ---
+    setNearbySpot: (spot) => set({ nearbySpot: spot }),
+
+    startScan: () => {
+      const state = get()
+      if (state.isPoweredOff || state.isControlsLocked || state.activeScan || !state.nearbySpot) {
+        return
+      }
+
+      const spot = state.nearbySpot
+      if (spot.collected) return
+
+      // Battery cost check
+      if (state.battery < spot.batteryCost) {
+        set({ scanError: 'Not enough battery to scan' })
+        setTimeout(() => {
+          if (get().scanError) set({ scanError: null })
+        }, 3000)
+        return
+      }
+
+      set({
+        scanError: null,
+        activeScan: {
+          spotId: spot.id,
+          type: spot.type,
+          elapsed: 0,
+          duration: SCAN_DURATION_SEC,
+        },
+      })
+    },
+
+    cancelScan: () => {
+      if (get().activeScan) {
+        set({ activeScan: null })
+      }
+    },
+
+    tickScan: (dt) => {
+      const state = get()
+      if (!state.activeScan) return
+
+      // Moving cancels the scan!
+      if (state.isDriving) {
+        set({ activeScan: null })
+        return
+      }
+
+      // Check proximity (if rover moved or drifted away)
+      const spot = state.discoverySpots.find((s) => s.id === state.activeScan?.spotId)
+      if (!spot || spot.collected) {
+        set({ activeScan: null })
+        return
+      }
+
+      const dx = state.roverX - spot.x
+      const dy = state.roverY - spot.y
+      if (Math.sqrt(dx * dx + dy * dy) > SCAN_PROXIMITY_RADIUS + 10) {
+        set({ activeScan: null })
+        return
+      }
+
+      const newElapsed = state.activeScan.elapsed + dt
+
+      if (newElapsed >= state.activeScan.duration) {
+        // Scan succeeded!
+        const newBattery = Math.max(0, state.battery - spot.batteryCost)
+        const updatedSpots = state.discoverySpots.map((s) =>
+          s.id === spot.id ? { ...s, collected: true } : s
+        )
+
+        const photo = selectPhotoForDiscovery(spot.type)
+
+        set({
+          battery: newBattery,
+          discoverySpots: updatedSpots,
+          totalDiscoveryPoints: state.totalDiscoveryPoints + spot.points,
+          discoveryPointsToday: state.discoveryPointsToday + spot.points,
+          discoveriesFoundToday: state.discoveriesFoundToday + 1,
+          activeScan: null,
+          activeDiscovery: {
+            spot,
+            photo,
+          },
+          isControlsLocked: true, // Freeze rover while popup is open
+        })
+
+        // Notify Phaser scene to remove collected spot
+        window.dispatchEvent(
+          new CustomEvent('discovery-collected', { detail: { id: spot.id } })
+        )
+      } else {
+        set({
+          activeScan: {
+            ...state.activeScan,
+            elapsed: newElapsed,
+          },
+        })
+      }
+    },
+
+    closeDiscoveryPopup: () => {
+      set({
+        activeDiscovery: null,
+        isControlsLocked: false, // Resume controls and timer!
+      })
+    },
+
     tickDayTimer: (dt) => {
       const state = get()
+      // Pause day timer while discovery celebration popup is open
+      if (state.activeDiscovery !== null) return
       if (state.dayPhase !== 'daytime' && state.dayPhase !== 'sunset') return
       if (state.isMissionComplete || state.isAirDepleted || state.isCrewDepleted) return
 
@@ -373,6 +534,10 @@ export const useGameStore = create<GameState>((set, get) => {
           roverStormPenaltyApplied: state.roverPenaltyAppliedToday,
           whySentence: finalWhy,
           fact: getRandomFact(),
+          // Discoveries today
+          discoveriesToday: state.discoveriesFoundToday,
+          pointsToday: state.discoveryPointsToday,
+          totalPoints: state.totalDiscoveryPoints,
         }
 
         set({
@@ -380,6 +545,7 @@ export const useGameStore = create<GameState>((set, get) => {
           dayPhase: 'ended',
           isControlsLocked: true,
           isDriving: false,
+          activeScan: null,
           air: airAfter,
           isAirDepleted: airDepleted,
           crewHealth: finalCrewHealth,
@@ -439,6 +605,8 @@ export const useGameStore = create<GameState>((set, get) => {
         isDriving: false,
         isPoweredOff: false,
         distanceDrivenToday: 0,
+        discoveryPointsToday: 0,
+        discoveriesFoundToday: 0,
         dayEndResult: null,
         roverX: BASE_X,
         roverY: BASE_Y,
@@ -451,12 +619,17 @@ export const useGameStore = create<GameState>((set, get) => {
         isRoverSheltered: true,
         roverCaughtExposedToday: false,
         whySentenceToday: '',
+        activeScan: null,
+        scanError: null,
+        activeDiscovery: null,
       })
 
       window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
     },
 
     resetMission: () => {
+      resetPhotoHistory()
+      const newSpots = generateDiscoverySpots()
       const defaultCapacity =
         BASE_ROVER_CAPACITY + DEFAULT_POWER_SPLIT.rover * ROVER_CAPACITY_PER_POINT
 
@@ -468,6 +641,14 @@ export const useGameStore = create<GameState>((set, get) => {
         isDriving: false,
         isPoweredOff: false,
         distanceDrivenToday: 0,
+        totalDiscoveryPoints: 0,
+        discoveryPointsToday: 0,
+        discoveriesFoundToday: 0,
+        discoverySpots: newSpots,
+        nearbySpot: null,
+        activeScan: null,
+        scanError: null,
+        activeDiscovery: null,
         dayEndResult: null,
         isMissionComplete: false,
         isAirDepleted: false,

@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/gameStore'
+import WhyButton from './WhyButton'
 
 export default function ResultCard() {
   const dayEndResult = useGameStore((s) => s.dayEndResult)
@@ -30,6 +31,9 @@ export default function ResultCard() {
     roverSheltered,
     whySentence,
     fact,
+    discoveriesToday,
+    pointsToday,
+    totalPoints,
   } = dayEndResult
 
   const nextDayNumber = day + 1
@@ -80,6 +84,7 @@ export default function ResultCard() {
             <span className="font-bold flex items-center gap-1.5 text-slate-300">
               <span>📡</span>
               <span>Space Weather & Storm Result</span>
+              <WhyButton term="radiation" />
             </span>
             <span
               className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${
@@ -138,6 +143,30 @@ export default function ResultCard() {
           </div>
         </div>
 
+        {/* Discoveries Section (Stage 6) */}
+        <div className="bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700/80 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">💎</span>
+            <div>
+              <div className="flex items-center gap-1">
+                <span className="font-bold text-slate-200">Discoveries</span>
+                <WhyButton term="scan" />
+              </div>
+              <span className="text-[10px] text-slate-400">
+                Found today: {discoveriesToday}
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-mono font-bold text-amber-300 text-sm">
+              +{pointsToday} pts
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono">
+              Total: {totalPoints} pts
+            </div>
+          </div>
+        </div>
+
         {/* Air & Power Split */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700/80">
@@ -161,6 +190,7 @@ export default function ResultCard() {
             <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
               <span>⚡</span>
               <span>Power Split</span>
+              <WhyButton term="shield" />
             </div>
             <div className="text-[11px] font-mono font-bold mt-0.5 text-slate-200 flex justify-between gap-1">
               <span className="text-cyan-400">Air {powerSplit.air}</span>
@@ -183,7 +213,10 @@ export default function ResultCard() {
           </div>
 
           <div className="bg-slate-800/80 rounded-2xl p-2 border border-slate-700/80">
-            <span className="text-[10px] text-slate-400 block">🔋 Battery Left</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 block">🔋 Battery Left</span>
+              <WhyButton term="rover battery" />
+            </div>
             <span className="text-sm font-bold font-mono text-slate-100">
               {batteryLeft} / {batteryCapacity}
             </span>
