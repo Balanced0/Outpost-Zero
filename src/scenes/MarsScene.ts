@@ -1,12 +1,17 @@
 import Phaser from 'phaser'
 import { useGameStore } from '../store/gameStore'
+import {
+  BASE_X,
+  BASE_Y,
+  BASE_SAFE_DISTANCE,
+  ROVER_SPEED,
+  BATTERY_DRAIN_DRIVING,
+  BATTERY_RECHARGE_BASE,
+} from '../config/gameConfig'
 
 const MAP_W = 4000
 const MAP_H = 4000
 const TILE_SIZE = 64
-const BASE_X = 2000
-const BASE_Y = 2000
-const ROVER_SPEED = 180
 const MAP_SEED = 42
 
 export default class MarsScene extends Phaser.Scene {
@@ -271,14 +276,18 @@ export default class MarsScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     const store = useGameStore.getState()
-    const { isPoweredOff, joystickDx, joystickDy } = store
+    const { isPoweredOff, isControlsLocked, dayPhase, joystickDx, joystickDy } = store
 
     const dt = delta / 1000 // seconds
 
-    if (isPoweredOff) {
+    // Advance the day timer
+    store.tickDayTimer(dt)
+
+    if (isPoweredOff || isControlsLocked || dayPhase === 'ended') {
       this.roverBody.setVelocity(0, 0)
       this.dustEmitter.stop()
       store.setIsDriving(false)
+      store.setRoverPos(this.rover.x, this.rover.y)
       return
     }
 
@@ -320,8 +329,11 @@ export default class MarsScene extends Phaser.Scene {
       this.rover.setRotation(angle)
     }
 
-    // --- Dust particles ---
+    // --- Dust particles & Distance tracking ---
     if (driving) {
+      const stepDist = Math.sqrt(vx * vx + vy * vy) * dt
+      store.addDistanceDriven(stepDist)
+
       const angle = Math.atan2(vy, vx)
       // Offset emission to the back of the rover
       const offsetDist = 28
@@ -341,9 +353,9 @@ export default class MarsScene extends Phaser.Scene {
     let battery = store.battery
 
     if (driving) {
-      battery -= 2 * dt
-    } else if (dist < 150) {
-      battery += 4 * dt
+      battery -= BATTERY_DRAIN_DRIVING * dt
+    } else if (dist < BASE_SAFE_DISTANCE) {
+      battery += BATTERY_RECHARGE_BASE * dt
     }
 
     battery = Phaser.Math.Clamp(battery, 0, 100)

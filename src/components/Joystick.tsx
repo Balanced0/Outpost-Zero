@@ -50,6 +50,8 @@ export default function Joystick() {
   }
 
   function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const store = useGameStore.getState()
+    if (store.isControlsLocked || store.isPoweredOff || store.dayPhase === 'ended') return
     if (activeTouchId.current !== null) return
     const touch = e.changedTouches[0]
     activeTouchId.current = touch.identifier
