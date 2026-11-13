@@ -241,6 +241,11 @@ interface GameState {
   playAgain: () => void
   tryHarderMode: () => void
   switchPlanet: () => void
+
+  // Glossary Card (Why? cards)
+  glossaryCardTerm: string | null
+  openGlossaryCard: (term: string) => void
+  closeGlossaryCard: () => void
 }
 
 const saved = loadSavedSettings()
@@ -268,6 +273,7 @@ export const useGameStore = create<GameState>((set, get) => {
     isDebriefOpen: false,
     showDataSourcesModal: false,
     dayLogs: [],
+    glossaryCardTerm: null,
 
     // Rover & Controls
     battery: initialCapacity,
@@ -373,6 +379,7 @@ export const useGameStore = create<GameState>((set, get) => {
         isMissionComplete: false,
         isDebriefOpen: false,
         dayLogs: [],
+        glossaryCardTerm: null,
         dayEndResult: null,
         isAirDepleted: false,
         isCrewDepleted: false,
@@ -445,6 +452,9 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     openDebrief: () => set({ isDebriefOpen: true }),
+
+    openGlossaryCard: (term) => set({ glossaryCardTerm: term }),
+    closeGlossaryCard: () => set({ glossaryCardTerm: null }),
     closeDebrief: () => set({ isDebriefOpen: false }),
     setShowDataSourcesModal: (v) => set({ showDataSourcesModal: v }),
 
@@ -676,6 +686,7 @@ export const useGameStore = create<GameState>((set, get) => {
     tickDayTimer: (dt) => {
       const state = get()
       if (state.activeDiscovery !== null || state.tutorialStep === 'day2_driving') return
+      if (state.glossaryCardTerm !== null) return
       if (state.dayPhase !== 'daytime' && state.dayPhase !== 'sunset') return
       if (state.isMissionComplete || state.isAirDepleted || state.isCrewDepleted) return
 
@@ -1049,6 +1060,7 @@ export const useGameStore = create<GameState>((set, get) => {
         isMissionComplete: false,
         isDebriefOpen: false,
         dayLogs: [],
+        glossaryCardTerm: null,
         isAirDepleted: false,
         isCrewDepleted: false,
         crewHealth: INITIAL_CREW_HEALTH,

@@ -10,8 +10,13 @@ import TutorialHelper from './components/TutorialHelper'
 import StartMenu from './components/StartMenu'
 import DebriefScreen from './components/DebriefScreen'
 import DataSourcesModal from './components/DataSourcesModal'
+import GlossaryCard from './components/GlossaryCard'
+import { useAutoGlossaryCards } from './hooks/useAutoGlossaryCards'
 
-export default function App() {
+function AppInner() {
+  // Auto-open glossary cards for first-time events
+  useAutoGlossaryCards()
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
       <GameCanvas />
@@ -27,6 +32,12 @@ export default function App() {
       <DebriefScreen />
       <DataSourcesModal />
       <StartMenu />
+      {/* Glossary card at highest z — above everything else */}
+      <GlossaryCard />
     </div>
   )
+}
+
+export default function App() {
+  return <AppInner />
 }

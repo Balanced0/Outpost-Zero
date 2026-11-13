@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
+import { resetSeenHints } from '../hooks/useAutoGlossaryCards'
 import {
   BASE_ROVER_CAPACITY,
   ROVER_CAPACITY_PER_POINT,
@@ -403,6 +404,14 @@ export default function MorningScreen() {
               👈 Tip: Tap + or - on any slider to test balancing your power!
             </span>
           )}
+          {/* Show hints again */}
+          <button
+            type="button"
+            onClick={() => { resetSeenHints(); alert('Hints reset! All "?" cards will show again this mission.') }}
+            className="text-[11px] text-slate-500 hover:text-slate-300 underline underline-offset-2 cursor-pointer transition-colors mt-1"
+          >
+            Show hints again
+          </button>
         </div>
       </div>
     </div>
