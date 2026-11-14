@@ -3,6 +3,7 @@ import { useGameStore, loadSavedSettings } from '../store/gameStore'
 import { PlanetId, PLANETS } from '../config/planets'
 import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 import { sfx } from '../utils/sound'
+import { prefetchDonkiInIdle } from '../data/stormSource'
 import {
   PlanetarySpaceCanvas,
   MiniPlanetVideoCanvas,
@@ -42,6 +43,10 @@ export default function StartMenu() {
     }, 120)
     return () => clearInterval(interval)
   }, [isGameStarted])
+
+  useEffect(() => {
+    prefetchDonkiInIdle()
+  }, [])
 
   if (isGameStarted) {
     return null
