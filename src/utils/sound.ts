@@ -133,8 +133,20 @@ export function setMuted(v: boolean) {
 
 export function setMusicMuted(v: boolean) {
   _musicMuted = v
-  if (musicGain) {
-    musicGain.gain.value = v ? 0 : 0.45
+  try {
+    const ctx = getAudioCtx()
+    if (ctx && musicGain) {
+      const now = ctx.currentTime
+      musicGain.gain.cancelScheduledValues(now)
+      musicGain.gain.setValueAtTime(musicGain.gain.value, now)
+      musicGain.gain.linearRampToValueAtTime(v ? 0 : 0.45, now + 0.05)
+    }
+  } catch { /* ignore */ }
+
+  if (v) {
+    stopAmbientMusic()
+  } else {
+    startAmbientMusic()
   }
   try { localStorage.setItem(MUSIC_MUTE_KEY, String(v)) } catch { /* ignore */ }
 }
@@ -241,7 +253,10 @@ export async function startLoop(
     gainNode.gain.linearRampToValueAtTime(targetVol, ctx.currentTime + fadeIn)
 
     src.connect(gainNode)
-    gainNode.connect(sfxGain)
+    const targetGain = (soundName === 'ambient_drone' || soundName.includes('music'))
+      ? (musicGain || sfxGain)
+      : sfxGain
+    gainNode.connect(targetGain)
 
     src.start()
     activeLoops.set(loopId, { source: src, gainNode })
@@ -295,6 +310,7 @@ export function setLoopVolume(loopId: string, volume: number) {
 
 let musicRunning = false
 let musicTimer: number | null = null
+let activeChordNodes: { oscs: OscillatorNode[]; gain: GainNode }[] = []
 
 // Ambient space chords in frequencies (Hz):
 // 1. Dm9 (D3, F3, A3, C4, E4)
@@ -313,7 +329,7 @@ const SPACE_CHORDS = [
 let currentChordIndex = 0
 
 function playNextAmbientChord() {
-  if (!musicRunning) return
+  if (!musicRunning || _musicMuted) return
   try {
     const ctx = getAudioCtx()
     if (!ctx || !musicGain || ctx.state === 'suspended') return
@@ -340,17 +356,19 @@ function playNextAmbientChord() {
     filter.connect(chordGain)
     chordGain.connect(musicGain)
 
+    const oscs: OscillatorNode[] = []
+
     // Play each note with subtle detune for a lush, analog space pad sound
     chord.forEach((freq, i) => {
       const osc = ctx.createOscillator()
       osc.type = i === 0 ? 'sine' : (i % 2 === 0 ? 'triangle' : 'sine')
       osc.frequency.setValueAtTime(freq, now)
-      // Tiny detuning (cents) for lushness
       osc.detune.setValueAtTime((i % 2 === 0 ? 4 : -4), now)
 
       osc.connect(filter)
       osc.start(now)
       osc.stop(now + chordDuration)
+      oscs.push(osc)
     })
 
     // Optional: subtle high celestial chime (sparkle of distant stars)
@@ -369,16 +387,27 @@ function playNextAmbientChord() {
       chimeGain.connect(musicGain)
       chimeOsc.start(now + 2.5)
       chimeOsc.stop(now + 5.6)
+      oscs.push(chimeOsc)
     }
 
+    const currentEntry = { oscs, gain: chordGain }
+    activeChordNodes.push(currentEntry)
+    setTimeout(() => {
+      const idx = activeChordNodes.indexOf(currentEntry)
+      if (idx !== -1) activeChordNodes.splice(idx, 1)
+    }, chordDuration * 1000)
+
     // Schedule next chord before this one finishes for a smooth crossfade
-    musicTimer = window.setTimeout(playNextAmbientChord, (chordDuration - 1.8) * 1000)
+    if (musicRunning && !_musicMuted) {
+      musicTimer = window.setTimeout(playNextAmbientChord, (chordDuration - 1.8) * 1000)
+    }
   } catch {
     // Non-fatal
   }
 }
 
 export function startAmbientMusic() {
+  if (_musicMuted) return
   if (musicRunning) return
   musicRunning = true
   try {
@@ -386,7 +415,7 @@ export function startAmbientMusic() {
     if (!ctx) return
     if (ctx.state === 'suspended') {
       ctx.resume().then(() => {
-        playNextAmbientChord()
+        if (!_musicMuted) playNextAmbientChord()
       }).catch(() => {/* ignore */})
     } else {
       playNextAmbientChord()
@@ -402,4 +431,26 @@ export function stopAmbientMusic() {
     clearTimeout(musicTimer)
     musicTimer = null
   }
+  // Immediately ramp down active chord oscillators
+  try {
+    const ctx = getAudioCtx()
+    const now = ctx ? ctx.currentTime : 0
+    activeChordNodes.forEach(({ oscs, gain }) => {
+      try {
+        if (ctx) {
+          gain.gain.cancelScheduledValues(now)
+          gain.gain.setValueAtTime(gain.gain.value, now)
+          gain.gain.linearRampToValueAtTime(0, now + 0.05)
+        }
+        setTimeout(() => {
+          oscs.forEach((osc) => {
+            try { osc.stop() } catch {}
+            try { osc.disconnect() } catch {}
+          })
+          try { gain.disconnect() } catch {}
+        }, 60)
+      } catch {}
+    })
+  } catch {}
+  activeChordNodes = []
 }

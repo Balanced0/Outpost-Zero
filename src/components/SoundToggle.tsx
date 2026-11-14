@@ -49,7 +49,7 @@ export default function SoundToggle() {
             }`}
           >
             <MusicNoteIcon size={13} className={musicMuted ? 'text-slate-500' : 'text-indigo-300'} />
-            <span>{musicMuted ? 'Music Off' : 'Music On'}</span>
+            <span>{musicMuted ? 'Music: Off' : 'Music: On'}</span>
           </button>
         </div>
       )}
