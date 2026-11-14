@@ -19,6 +19,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Raw and large asset sources
+assets-originals/
+kenney_*/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

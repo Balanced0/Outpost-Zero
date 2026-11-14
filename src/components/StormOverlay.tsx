@@ -35,11 +35,7 @@ export default function StormOverlay() {
       {/* 2. Active Storm Visual & Proximity Status (15s duration) */}
       {stormState === 'active' && (
         <>
-          {/* Mild red-orange storm atmosphere flicker overlay */}
-          <div className="fixed inset-0 w-[100vw] h-[100dvh] pointer-events-none z-15 overflow-hidden">
-            <div className="absolute inset-0 w-full h-full bg-red-600/25 mix-blend-color-burn animate-pulse transition-opacity duration-1000" />
-            <div className="absolute inset-0 w-full h-full bg-amber-500/15 mix-blend-screen animate-pulse" />
-          </div>
+          {/* Storm atmosphere tint is rendered inside Phaser at depth 15 with camera zoom compensation */}
 
           {/* Storm status banner with rover shelter status */}
           <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-1.5 w-[92vw] max-w-sm">

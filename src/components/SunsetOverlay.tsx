@@ -33,15 +33,8 @@ export default function SunsetOverlay() {
   // Night darkness ramps up from 0 to 0.85
   const nightOpacity = progress * (isMars ? 0.8 : 0.88)
 
-  return (
-    <div className="fixed inset-0 w-[100vw] h-[100dvh] pointer-events-none z-10 transition-opacity duration-300 overflow-hidden">
-      {/* Warm orange Martian dust sunset glow (Mars only) */}
-      {isMars && (
-        <div
-          className="absolute inset-0 w-full h-full bg-gradient-to-b from-orange-600 via-amber-700 to-orange-950 mix-blend-color-burn"
-          style={{ opacity: orangeOpacity }}
-        />
-      )}
-    </div>
-  )
+  // Sunset glow and night darkness are now rendered inside Phaser at depth 15
+  // with camera-zoom compensation so they cover the entire screen and sit below
+  // the shield ring, base windows, and rover headlights.
+  return null
 }

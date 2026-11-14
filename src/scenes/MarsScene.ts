@@ -250,6 +250,9 @@ export default class MarsScene extends Phaser.Scene {
       const extraPad = Math.max(w, h, GROUND_PAD)
       this.groundTileSprite.setSize(MAP_W + extraPad * 2, MAP_H + extraPad * 2)
     }
+
+    // Refresh full-screen tint overlays to match new dimensions and zoom
+    this.updateTintOverlays()
   }
 
   private handleResize(gameSize: Phaser.Structs.Size) {
@@ -1298,23 +1301,8 @@ export default class MarsScene extends Phaser.Scene {
       this.headlightGfx.setVisible(isNight)
     }
 
-    // Update darkness overlay (depth 15: covers ground, rocks, rover, base body)
-    if (this.darknessOverlayGfx) {
-      this.darknessOverlayGfx.clear()
-      const isNight = store.timeLeft <= SUNSET_WARN_SEC || store.dayPhase === 'ended'
-      if (isNight) {
-        const progress =
-          store.dayPhase === 'ended'
-            ? 1
-            : Math.max(0, Math.min(1, (SUNSET_WARN_SEC - store.timeLeft) / SUNSET_WARN_SEC))
-        const isMars = store.planet === 'mars'
-        const nightOpacity = progress * (isMars ? 0.8 : 0.88)
-        const darkColor = isMars ? 0x060b1c : 0x000000
-        const cam = this.cameras.main
-        this.darknessOverlayGfx.fillStyle(darkColor, nightOpacity)
-        this.darknessOverlayGfx.fillRect(0, 0, cam.width, cam.height)
-      }
-    }
+    // Update full-screen tint overlays (sunset glow, night darkness, storm haze)
+    this.updateTintOverlays()
 
     const distToBase = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, BASE_X, BASE_Y)
 
@@ -1467,6 +1455,79 @@ export default class MarsScene extends Phaser.Scene {
     const pingAlpha = (1 - pingProgress) * 0.5
     this.scanGraphics.lineStyle(2, 0x38bdf8, pingAlpha)
     this.scanGraphics.strokeCircle(rx, ry, pingRadius)
+  }
+
+  /**
+   * Renders all full-screen tint overlays (sunset glow, night darkness, storm haze):
+   * Sized to (cam.width / cam.zoom) * 2.5 x (cam.height / cam.zoom) * 2.5 and centered on the camera center.
+   * With scrollFactor(0), the oversized rectangle extends far beyond the screen on all sides at any zoom level,
+   * guaranteeing no borders, gaps, or box edges ever appear.
+   * Placed at depth 15 so shield ring (20), base lights (21), and labels (22) stay above with additive glow.
+   */
+  private updateTintOverlays() {
+    if (!this.darknessOverlayGfx || !this.cameras || !this.cameras.main) return
+
+    const store = useGameStore.getState()
+    const cam = this.cameras.main
+    const z = cam.zoom || 1
+
+    // Size overlay to (width / zoom) * 2.5 centered on camera center
+    const padFactor = 2.5
+    const spanW = (cam.width / z) * padFactor
+    const spanH = (cam.height / z) * padFactor
+    const startX = cam.width * 0.5 - spanW * 0.5
+    const startY = cam.height * 0.5 - spanH * 0.5
+
+    this.darknessOverlayGfx.clear()
+
+    const isNight = store.timeLeft <= SUNSET_WARN_SEC || store.dayPhase === 'ended'
+    const isMars = store.planet === 'mars'
+    const stormState = store.stormState
+
+    // 1. Warm Martian Sunset Glow (Mars only, no atmosphere/dust on Moon)
+    if (isMars && isNight) {
+      const progress =
+        store.dayPhase === 'ended'
+          ? 1
+          : Math.max(0, Math.min(1, (SUNSET_WARN_SEC - store.timeLeft) / SUNSET_WARN_SEC))
+
+      const orangeOpacity =
+        progress < 0.5
+          ? progress * 0.9 // 0 -> 0.45
+          : (1 - progress) * 0.9 // 0.45 -> 0
+
+      if (orangeOpacity > 0.01) {
+        this.darknessOverlayGfx.fillStyle(0xc2410c, orangeOpacity * 0.5)
+        this.darknessOverlayGfx.fillRect(startX, startY, spanW, spanH)
+      }
+    }
+
+    // 2. Active Storm Radiation / Dust Haze
+    if (stormState === 'active') {
+      const stormLevel = store.stormLevelToday || 'minor'
+      const hazeAlpha = stormLevel === 'strong' ? 0.22 : 0.14
+      // Subtle red-orange storm atmosphere haze
+      this.darknessOverlayGfx.fillStyle(0xdc2626, hazeAlpha)
+      this.darknessOverlayGfx.fillRect(startX, startY, spanW, spanH)
+      this.darknessOverlayGfx.fillStyle(0xd97706, hazeAlpha * 0.5)
+      this.darknessOverlayGfx.fillRect(startX, startY, spanW, spanH)
+    }
+
+    // 3. Sunset / Night Darkness
+    if (isNight) {
+      const progress =
+        store.dayPhase === 'ended'
+          ? 1
+          : Math.max(0, Math.min(1, (SUNSET_WARN_SEC - store.timeLeft) / SUNSET_WARN_SEC))
+
+      const nightOpacity = progress * (isMars ? 0.82 : 0.90)
+      const darkColor = isMars ? 0x060b1c : 0x000000
+
+      if (nightOpacity > 0.01) {
+        this.darknessOverlayGfx.fillStyle(darkColor, nightOpacity)
+        this.darknessOverlayGfx.fillRect(startX, startY, spanW, spanH)
+      }
+    }
   }
 
   /**
