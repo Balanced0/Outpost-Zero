@@ -11,7 +11,7 @@
 ## Project Links
 
 - **Live Game:** [\[LIVE_URL\]](https://outpost-zero-theta.vercel.app/)
-- **Demo Video:** [VIDEO_URL]
+- **Demo Video:** [\[VIDEO_URL\]](https://www.youtube.com/watch?v=fVHmXuY60XA)
 - **Source Repository:** [\[REPO_URL\]](https://github.com/Balanced0/Outpost-Zero)
 
 ---
@@ -178,7 +178,7 @@ A dedicated **Data Sources & Science** modal in the menu provides kids and judge
 
 ## AI Tools Disclosure
 
-AI coding assistants (Antigravity, Claude, Chatgpt) were used to assist with code drafting, refactoring, and documentation formatting. All architectural decisions, gameplay balance tuning, data verification, and testing were actively directed, implemented, and reviewed by the human team.
+AI coding assistants (Antigravity, Codex, Claude, Chatgpt) were used to assist with code drafting, refactoring, and documentation formatting. All architectural decisions, gameplay balance tuning, data verification, and testing were actively directed, implemented, and reviewed by the human team.
 
 ---
 
