@@ -1269,6 +1269,8 @@ export default class MarsScene extends Phaser.Scene {
   // ------------------------------------------------------------------ update
 
   update(_time: number, delta: number) {
+    debugLogger.incrementFrameCount()
+
     const store = useGameStore.getState()
     const {
       isGameStarted,

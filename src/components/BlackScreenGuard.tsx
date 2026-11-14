@@ -2,37 +2,72 @@ import { useEffect, useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { setLowQualityMode } from '../utils/qualitySettings'
 import { debugLogger } from '../utils/debugLogger'
+import { getActiveGame } from './GameCanvas'
 
 export default function BlackScreenGuard() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
+  const dayPhase = useGameStore((s) => s.dayPhase)
+  const isMissionComplete = useGameStore((s) => s.isMissionComplete)
+  const isAirDepleted = useGameStore((s) => s.isAirDepleted)
+  const isCrewDepleted = useGameStore((s) => s.isCrewDepleted)
+
   const [hasTimedOut, setHasTimedOut] = useState(false)
 
+  // The world is supposed to be visible ONLY during active gameplay (daytime or sunset)
+  // Never during loading screen, menu, morning screen, result card, or paused
+  const isWorldSupposedToBeVisible =
+    isGameStarted &&
+    (dayPhase === 'daytime' || dayPhase === 'sunset') &&
+    !isMissionComplete &&
+    !isAirDepleted &&
+    !isCrewDepleted
+
   useEffect(() => {
-    if (!isGameStarted) {
+    // If world is not supposed to be visible, never show black screen card
+    if (!isWorldSupposedToBeVisible) {
       setHasTimedOut(false)
       return
     }
 
-    let frameRendered = false
-
-    const handleFrame = () => {
-      frameRendered = true
+    const getFrameNumber = (): number => {
+      const g = getActiveGame()
+      if (g && g.loop && typeof g.loop.frame === 'number') {
+        return g.loop.frame
+      }
+      return debugLogger.frameCount
     }
 
-    window.addEventListener('phaser-frame-rendered', handleFrame, { once: true })
+    let lastFrame = getFrameNumber()
+    let stuckSeconds = 0
 
-    const timer = setTimeout(() => {
-      if (!frameRendered) {
-        debugLogger.logError('Black screen detected: No frame rendered 5 seconds after launch')
-        setHasTimedOut(true)
+    const interval = setInterval(() => {
+      const currentFrame = getFrameNumber()
+
+      if (currentFrame > lastFrame) {
+        // Frames are advancing normally! Reset stuck timer.
+        lastFrame = currentFrame
+        stuckSeconds = 0
+      } else {
+        // Frame has not advanced
+        stuckSeconds += 1
+        console.warn(
+          `[BlackScreenGuard] Frame ${currentFrame} has not advanced for ${stuckSeconds}s (world visible)`
+        )
+
+        // Only count as black screen if frame has not advanced for 8 full seconds
+        if (stuckSeconds >= 8) {
+          debugLogger.logError(
+            `Black screen detected: Frame stuck at ${currentFrame} for 8s while world visible`
+          )
+          setHasTimedOut(true)
+        }
       }
-    }, 5000)
+    }, 1000)
 
     return () => {
-      clearTimeout(timer)
-      window.removeEventListener('phaser-frame-rendered', handleFrame)
+      clearInterval(interval)
     }
-  }, [isGameStarted])
+  }, [isWorldSupposedToBeVisible])
 
   if (!hasTimedOut) return null
 
@@ -53,7 +88,7 @@ export default function BlackScreenGuard() {
         <div className="text-5xl">⚠️</div>
         <h2 className="text-2xl font-black text-amber-300">Something went wrong</h2>
         <p className="text-sm text-slate-300 leading-relaxed">
-          The game canvas did not start rendering. Tablets and Safari can run out of canvas memory on high-resolution screens.
+          The game graphics stopped rendering. Tablets and Safari can run out of canvas memory on high-resolution screens.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full mt-2">

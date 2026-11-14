@@ -1,6 +1,7 @@
 /**
  * Debug Logger & Error Tracker for Outpost Zero.
- * Captures unhandled errors, texture sizes, renderer details, and device diagnostics.
+ * Captures unhandled errors, texture sizes, renderer details, device diagnostics,
+ * live game instance count, context loss counts, and frame progression.
  * Shown on screen when ?debug=1 is in the URL, or automatically when an error occurs.
  */
 
@@ -24,6 +25,15 @@ class DebugLogger {
   public hasError: boolean = false
   public isLowQuality: boolean = false
 
+  // Diagnostics requested by user
+  public liveGameCount: number = 0
+  public contextLostCount: number = 0
+  public fallbackRan: boolean = false
+  public frameCount: number = 0
+
+  private handledContextRestoreError: boolean = false
+  public onContextErrorFallback?: () => void
+
   private listeners: Set<Listener> = new Set()
   private initialized: boolean = false
 
@@ -37,12 +47,37 @@ class DebugLogger {
 
     window.addEventListener('error', (event: ErrorEvent) => {
       const msg = event.error?.stack || event.message || 'Unknown window.onerror'
+
+      // Catch error thrown from setExtensions or dispatchContextRestored inside Phaser
+      if (msg.includes('setExtensions') || msg.includes('dispatchContextRestored')) {
+        console.warn('[DebugLogger] Intercepted Phaser context restore/extensions error:', msg)
+        if (!this.handledContextRestoreError) {
+          this.handledContextRestoreError = true
+          this.logError(`Phaser context restore failure: ${msg.split('\n')[0]}`)
+          if (this.onContextErrorFallback) {
+            this.onContextErrorFallback()
+          }
+        }
+        return
+      }
+
       this.logError(`[Error] ${msg}`)
     })
 
     window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
       const reason = event.reason
       const msg = reason?.stack || (typeof reason === 'object' ? JSON.stringify(reason) : String(reason))
+      if (msg.includes('setExtensions') || msg.includes('dispatchContextRestored')) {
+        console.warn('[DebugLogger] Intercepted Phaser context restore unhandled rejection:', msg)
+        if (!this.handledContextRestoreError) {
+          this.handledContextRestoreError = true
+          this.logError(`Phaser context restore rejection: ${msg.split('\n')[0]}`)
+          if (this.onContextErrorFallback) {
+            this.onContextErrorFallback()
+          }
+        }
+        return
+      }
       this.logError(`[UnhandledRejection] ${msg}`)
     })
   }
@@ -62,6 +97,29 @@ class DebugLogger {
   public recordTexture(key: string, width: number, height: number) {
     this.textures.set(key, { key, width, height })
     this.notify()
+  }
+
+  public setLiveGameCount(count: number) {
+    this.liveGameCount = count
+    this.notify()
+  }
+
+  public recordContextLost() {
+    this.contextLostCount++
+    this.notify()
+  }
+
+  public setFallbackRan(ran: boolean) {
+    this.fallbackRan = ran
+    this.notify()
+  }
+
+  public incrementFrameCount() {
+    this.frameCount++
+  }
+
+  public setFrameCount(count: number) {
+    this.frameCount = count
   }
 
   public setRendererInfo(info: {

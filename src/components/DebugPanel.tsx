@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { debugLogger } from '../utils/debugLogger'
 import { isLowQualityMode, getEffectiveDpr } from '../utils/qualitySettings'
+import { getActiveGame } from './GameCanvas'
 
 export default function DebugPanel() {
   const [, setTick] = useState(0)
@@ -8,9 +9,19 @@ export default function DebugPanel() {
   const [forceClosed, setForceClosed] = useState(false)
 
   useEffect(() => {
-    return debugLogger.subscribe(() => {
+    const unsub = debugLogger.subscribe(() => {
       setTick((t) => t + 1)
     })
+
+    // Poll every 500ms so frame count and live game count update continuously
+    const interval = setInterval(() => {
+      setTick((t) => t + 1)
+    }, 500)
+
+    return () => {
+      unsub()
+      clearInterval(interval)
+    }
   }, [])
 
   if (forceClosed) return null
@@ -24,6 +35,8 @@ export default function DebugPanel() {
   const dpr = window.devicePixelRatio || 1
   const effectiveDpr = getEffectiveDpr()
   const vv = window.visualViewport
+  const activeGame = getActiveGame()
+  const currentFrame = activeGame?.loop?.frame ?? debugLogger.frameCount
 
   return (
     <div className="fixed top-2 left-2 z-[99999] pointer-events-auto font-mono text-[11px] select-text">
@@ -86,13 +99,72 @@ export default function DebugPanel() {
               <div>Quality Mode: <span className={isLowQ ? 'text-amber-400 font-bold' : 'text-emerald-400'}>{isLowQ ? 'LOW' : 'NORMAL'}</span></div>
             </div>
 
-            {/* Renderer & Canvas */}
+            {/* Renderer & Canvas Diagnostics */}
             <div className="space-y-0.5 border-b border-slate-800/80 pb-2">
-              <div className="text-cyan-300 font-bold">RENDERER & CANVAS</div>
-              <div>Type: <span className="text-emerald-400 font-bold">{debugLogger.rendererType}</span></div>
-              <div>GL Max Texture: <span className="text-white">{debugLogger.maxTextureSize ? `${debugLogger.maxTextureSize}px` : 'N/A'}</span></div>
-              <div>Canvas CSS: <span className="text-white">{debugLogger.canvasCssW} × {debugLogger.canvasCssH}</span></div>
-              <div>Canvas Buffer: <span className="text-white">{debugLogger.canvasBackingW} × {debugLogger.canvasBackingH}</span> ({Math.round((debugLogger.canvasBackingW * debugLogger.canvasBackingH) / 1000)}k px)</div>
+              <div className="text-cyan-300 font-bold">RENDERER & INSTANCES</div>
+              <div>
+                Live Game Count:{' '}
+                <span
+                  className={
+                    debugLogger.liveGameCount === 1
+                      ? 'text-emerald-400 font-bold'
+                      : debugLogger.liveGameCount === 0
+                      ? 'text-slate-400'
+                      : 'text-red-400 font-bold'
+                  }
+                >
+                  {debugLogger.liveGameCount}
+                </span>
+              </div>
+              <div>
+                Renderer Type:{' '}
+                <span className="text-emerald-400 font-bold">{debugLogger.rendererType}</span>
+              </div>
+              <div>
+                Context Lost Events:{' '}
+                <span
+                  className={
+                    debugLogger.contextLostCount === 0
+                      ? 'text-emerald-400'
+                      : 'text-amber-400 font-bold'
+                  }
+                >
+                  {debugLogger.contextLostCount}
+                </span>
+              </div>
+              <div>
+                Canvas Fallback Ran:{' '}
+                <span
+                  className={
+                    debugLogger.fallbackRan ? 'text-amber-400 font-bold' : 'text-emerald-400'
+                  }
+                >
+                  {debugLogger.fallbackRan ? 'Yes' : 'No'}
+                </span>
+              </div>
+              <div>
+                Frames Advanced:{' '}
+                <span className="text-cyan-300 font-bold">{currentFrame}</span>
+              </div>
+              <div>
+                GL Max Texture:{' '}
+                <span className="text-white">
+                  {debugLogger.maxTextureSize ? `${debugLogger.maxTextureSize}px` : 'N/A'}
+                </span>
+              </div>
+              <div>
+                Canvas CSS:{' '}
+                <span className="text-white">
+                  {debugLogger.canvasCssW} × {debugLogger.canvasCssH}
+                </span>
+              </div>
+              <div>
+                Canvas Buffer:{' '}
+                <span className="text-white">
+                  {debugLogger.canvasBackingW} × {debugLogger.canvasBackingH}
+                </span>{' '}
+                ({Math.round((debugLogger.canvasBackingW * debugLogger.canvasBackingH) / 1000)}k px)
+              </div>
             </div>
 
             {/* Registered Textures */}

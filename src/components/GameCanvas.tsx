@@ -3,32 +3,35 @@ import Phaser from 'phaser'
 import PreloadScene from '../scenes/PreloadScene'
 import MarsScene from '../scenes/MarsScene'
 import { useGameStore } from '../store/gameStore'
-import { getClampedCanvasSize, isLowQualityMode } from '../utils/qualitySettings'
+import { getClampedCanvasSize } from '../utils/qualitySettings'
 import { debugLogger } from '../utils/debugLogger'
 
-function checkWebGLSupport(): boolean {
-  try {
-    const canvas = document.createElement('canvas')
-    return !!(
-      window.WebGLRenderingContext &&
-      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
-    )
-  } catch {
-    return false
-  }
+// Module-level singletons to guarantee exactly ONE live game instance
+let activeGameInstance: Phaser.Game | null = null
+let hasFallenBackToCanvas = false
+let isFallbackInProgress = false
+
+export function getActiveGame(): Phaser.Game | null {
+  return activeGameInstance
 }
 
 export default function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const gameRef = useRef<Phaser.Game | null>(null)
   const isGameStarted = useGameStore((s) => s.isGameStarted)
-  const [useCanvasRenderer, setUseCanvasRenderer] = useState(!checkWebGLSupport())
+  const [showReconnectingToast, setShowReconnectingToast] = useState(false)
+  const [, setRendererKey] = useState(0)
 
   useEffect(() => {
     if (!isGameStarted) {
-      if (gameRef.current) {
-        gameRef.current.destroy(true)
-        gameRef.current = null
+      if (activeGameInstance) {
+        console.count('[Phaser Lifecycle] Destroying game because isGameStarted=false')
+        try {
+          activeGameInstance.destroy(true)
+        } catch (e) {
+          console.warn('[Phaser Lifecycle] Error during game destroy:', e)
+        }
+        activeGameInstance = null
+        debugLogger.setLiveGameCount(0)
       }
       return
     }
@@ -38,19 +41,50 @@ export default function GameCanvas() {
 
     let cancelled = false
     let rAFId: number | null = null
+    let contextLostTimer: number | null = null
 
-    // Guard against React StrictMode creating duplicate game instances
-    if (gameRef.current) {
-      gameRef.current.destroy(true)
-      gameRef.current = null
+    const safeDestroyExistingGame = (reason: string) => {
+      if (activeGameInstance) {
+        console.count(`[Phaser Lifecycle] Destroying prior instance (${reason})`)
+        console.trace(`[Phaser Lifecycle] Destroy stack (${reason})`)
+        try {
+          activeGameInstance.destroy(true)
+        } catch (e) {
+          console.warn('[Phaser Lifecycle] Destroy error:', e)
+        }
+        activeGameInstance = null
+        debugLogger.setLiveGameCount(0)
+      }
+    }
+
+    const triggerCanvasFallback = (reason: string) => {
+      if (hasFallenBackToCanvas || isFallbackInProgress) return
+      isFallbackInProgress = true
+      hasFallenBackToCanvas = true
+      debugLogger.setFallbackRan(true)
+      debugLogger.logError(`Triggering Canvas fallback (once): ${reason}`)
+      console.warn(`[Phaser Lifecycle] Fallback to Canvas renderer triggered: ${reason}`)
+
+      safeDestroyExistingGame('fallbackToCanvas')
+      isFallbackInProgress = false
+
+      // Trigger re-init with Canvas
+      if (!cancelled) {
+        setRendererKey((k) => k + 1)
+      }
+    }
+
+    // Register callback for debugLogger if setExtensions/dispatchContextRestored fails
+    debugLogger.onContextErrorFallback = () => {
+      triggerCanvasFallback('setExtensions or dispatchContextRestored error')
     }
 
     /**
-     * Initializer: only boots Phaser once the container measures a real size > 0.
-     * Prevents iPad Safari from initializing a 0x0 WebGL context before CSS dvh resolves.
+     * Bootstraps Phaser ONLY after the container measures a real, non-zero size.
      */
     const attemptInit = () => {
       if (cancelled) return
+
       const w = container.clientWidth
       const h = container.clientHeight
 
@@ -59,9 +93,18 @@ export default function GameCanvas() {
         return
       }
 
-      // Compute clamped buffer dimensions (max 4M pixels, max DPR 2)
+      // If an instance already exists, do not recreate unless explicitly destroyed
+      if (activeGameInstance) {
+        console.warn('[Phaser Lifecycle] Game instance already exists, skipping duplicate creation')
+        debugLogger.setLiveGameCount(1)
+        return
+      }
+
       const { effectiveDpr } = getClampedCanvasSize(w, h)
-      const rendererType = useCanvasRenderer ? Phaser.CANVAS : Phaser.AUTO
+      const rendererType = hasFallenBackToCanvas ? Phaser.CANVAS : Phaser.AUTO
+
+      console.count('[Phaser Lifecycle] Initializing Phaser.Game')
+      console.log(`[Phaser Lifecycle] Initializing with renderer: ${hasFallenBackToCanvas ? 'CANVAS' : 'AUTO'}`)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const config: any = {
@@ -82,21 +125,55 @@ export default function GameCanvas() {
 
       try {
         const game = new Phaser.Game(config)
-        gameRef.current = game
+        activeGameInstance = game
+        debugLogger.setLiveGameCount(1)
 
-        // Record renderer diagnostics
         const canvas = game.canvas
         if (canvas) {
-          // Listen for WebGL context loss (iPad Safari VRAM pressure)
-          canvas.addEventListener('webglcontextlost', (e) => {
+          // Listen for WebGL context loss
+          // Do NOT destroy the game inside webglcontextlost! Let Phaser handle restore.
+          const onContextLost = (e: Event) => {
+            console.count('[Phaser Lifecycle] webglcontextlost event')
+            // Calling preventDefault tells the browser we intend to handle/restore the context
             e.preventDefault()
-            debugLogger.logError('WebGL context lost! Falling back to Phaser Canvas renderer...')
-            if (gameRef.current) {
-              gameRef.current.destroy(true)
-              gameRef.current = null
+            debugLogger.recordContextLost()
+            setShowReconnectingToast(true)
+
+            // If context stays lost for more than 3 seconds without restore, fallback to Canvas
+            if (!hasFallenBackToCanvas) {
+              if (contextLostTimer !== null) clearTimeout(contextLostTimer)
+              contextLostTimer = window.setTimeout(() => {
+                const gl = (game.renderer as unknown as { gl?: WebGLRenderingContext })?.gl
+                const isStillLost = gl ? gl.isContextLost() : true
+                if (isStillLost && !hasFallenBackToCanvas) {
+                  setShowReconnectingToast(false)
+                  triggerCanvasFallback('Context remained lost for > 3 seconds')
+                }
+              }, 3000)
             }
-            setUseCanvasRenderer(true)
-          })
+          }
+
+          const onContextRestored = () => {
+            console.count('[Phaser Lifecycle] webglcontextrestored event')
+            if (contextLostTimer !== null) {
+              clearTimeout(contextLostTimer)
+              contextLostTimer = null
+            }
+            setShowReconnectingToast(false)
+            console.log('[Phaser Lifecycle] WebGL context restored successfully')
+          }
+
+          canvas.addEventListener('webglcontextlost', onContextLost)
+          canvas.addEventListener('webglcontextrestored', onContextRestored)
+
+          // Verify WebGL renderer has gl context if WebGL mode was chosen
+          if (game.renderer.type === Phaser.WEBGL) {
+            const gl = (game.renderer as unknown as { gl?: WebGLRenderingContext }).gl
+            if (!gl && !hasFallenBackToCanvas) {
+              triggerCanvasFallback('WebGL renderer has no gl context after creation')
+              return
+            }
+          }
 
           const gl = (game.renderer as unknown as { gl?: WebGLRenderingContext }).gl
           const maxTex = gl
@@ -114,18 +191,20 @@ export default function GameCanvas() {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        debugLogger.logError(`Phaser initialization failed (${useCanvasRenderer ? 'Canvas' : 'WebGL'}): ${msg}`)
-        if (!useCanvasRenderer) {
-          // Retry with Canvas renderer
-          setUseCanvasRenderer(true)
+        console.error('[Phaser Lifecycle] Game creation threw error:', err)
+        if (!hasFallenBackToCanvas) {
+          triggerCanvasFallback(`Game constructor threw: ${msg}`)
+        } else {
+          debugLogger.logError(`Fatal Phaser canvas initialization error: ${msg}`)
         }
       }
     }
 
     attemptInit()
 
+    // Resizing only updates the canvas dimensions - NEVER recreates the game
     const resizeGame = () => {
-      const g = gameRef.current
+      const g = activeGameInstance
       const c = containerRef.current
       if (!g || !c) return
 
@@ -135,13 +214,12 @@ export default function GameCanvas() {
 
       const { effectiveDpr } = getClampedCanvasSize(w, h)
 
-      // Apply resolution to scale manager
       if (g.scale) {
-        (g.scale as unknown as { resolution?: number }).resolution = effectiveDpr
+        ;(g.scale as unknown as { resolution?: number }).resolution = effectiveDpr
         g.scale.resize(w, h)
       }
 
-      // Refresh MarsScene camera, zoom, bounds, and ground coverage
+      // Refresh MarsScene camera and bounds
       const marsScene = g.scene.getScene('MarsScene') as MarsScene | undefined
       if (marsScene && marsScene.scene?.isActive()) {
         marsScene.refreshViewport(w, h)
@@ -169,30 +247,40 @@ export default function GameCanvas() {
     return () => {
       cancelled = true
       if (rAFId !== null) cancelAnimationFrame(rAFId)
+      if (contextLostTimer !== null) clearTimeout(contextLostTimer)
       resizeObserver.disconnect()
       window.removeEventListener('resize', resizeGame)
       window.removeEventListener('orientationchange', resizeGame)
-      gameRef.current?.destroy(true)
-      gameRef.current = null
+      debugLogger.onContextErrorFallback = undefined
+
+      safeDestroyExistingGame('React unmount cleanup')
     }
-  }, [isGameStarted, useCanvasRenderer])
+  }, [isGameStarted])
 
   if (!isGameStarted) {
     return null
   }
 
   return (
-    <div
-      ref={containerRef}
-      id="game-container"
-      className="fixed inset-0 w-[100vw] overflow-hidden m-0 p-0 pointer-events-auto"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        width: '100vw',
-        height: 'var(--app-h, 100dvh)',
-        overflow: 'hidden',
-      }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        id="game-container"
+        className="fixed inset-0 w-[100vw] overflow-hidden m-0 p-0 pointer-events-auto"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100vw',
+          height: 'var(--app-h, 100dvh)',
+          overflow: 'hidden',
+        }}
+      />
+      {showReconnectingToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99995] bg-slate-900/90 text-amber-300 border border-amber-500/50 px-4 py-2 rounded-full shadow-lg text-xs font-semibold flex items-center gap-2 animate-pulse pointer-events-none">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+          Reconnecting graphics...
+        </div>
+      )}
+    </>
   )
 }
