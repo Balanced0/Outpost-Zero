@@ -36,7 +36,10 @@ export function StormAlertCard() {
 
   if (stormState === 'warning') {
     return (
-      <div className="w-[92vw] max-w-[300px] md:w-[272px] lg:w-80 md:max-w-none hud-glass border border-amber-400/75 rounded-2xl p-3 shadow-[0_14px_38px_rgba(245,158,11,0.32)] flex flex-col gap-2 relative overflow-hidden pointer-events-auto animate-fade-in">
+      <div
+        className="w-[92vw] max-w-[300px] md:w-[272px] lg:w-80 md:max-w-none mx-auto hud-glass border border-amber-400/80 rounded-2xl p-3 shadow-[0_14px_38px_rgba(245,158,11,0.35)] flex flex-col gap-2 relative overflow-hidden pointer-events-auto"
+        style={{ marginLeft: 'auto', marginRight: 'auto' }}
+      >
         {/* Glossy Shimmer Sweep */}
         <div
           className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-amber-300/10 to-transparent animate-shimmer pointer-events-none"
@@ -105,7 +108,10 @@ export function StormAlertCard() {
   }
 
   return (
-    <div className="w-[92vw] max-w-[300px] md:w-[272px] lg:w-80 md:max-w-none hud-glass border border-rose-500/80 rounded-2xl p-3 shadow-[0_16px_42px_rgba(244,63,94,0.4)] flex flex-col gap-2 relative overflow-hidden pointer-events-auto animate-fade-in">
+    <div
+      className="w-[92vw] max-w-[300px] md:w-[272px] lg:w-80 md:max-w-none mx-auto hud-glass border border-rose-500/85 rounded-2xl p-3 shadow-[0_16px_42px_rgba(244,63,94,0.42)] flex flex-col gap-2 relative overflow-hidden pointer-events-auto"
+      style={{ marginLeft: 'auto', marginRight: 'auto' }}
+    >
       {/* Glossy Shimmer Sweep */}
       <div
         className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-rose-400/12 to-transparent animate-shimmer pointer-events-none"

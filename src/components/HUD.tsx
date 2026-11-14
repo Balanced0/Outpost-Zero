@@ -583,8 +583,21 @@ export default function HUD() {
         </div>
 
         {/* Top-center: Day Timer, Sun bar, Phase Tabs & Storm Alert Card directly underneath */}
-        <div className="fixed inset-x-0 top-3.5 lg:top-4 flex flex-col items-center gap-2 pointer-events-none z-30">
-          <div className="hud-glass hud-card-interactive rounded-2xl px-4 lg:px-5 py-2.5 flex flex-col items-center w-[272px] lg:w-80 gap-2 pointer-events-auto">
+        <div
+          className="fixed left-0 right-0 w-full top-3.5 lg:top-4 flex flex-col items-center gap-2 pointer-events-none z-30"
+          style={{
+            left: 0,
+            right: 0,
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <div
+            className="hud-glass hud-card-interactive rounded-2xl px-4 lg:px-5 py-2.5 flex flex-col items-center w-[272px] lg:w-80 gap-2 pointer-events-auto"
+            style={{ marginLeft: 'auto', marginRight: 'auto' }}
+          >
             {/* Header: Planet, Difficulty, Commander */}
             <div className="flex items-center justify-between w-full text-[11px] font-medium text-slate-300 border-b border-white/[0.08] pb-1.5">
               <span className="inline-flex items-center gap-1.5 font-semibold text-white">
