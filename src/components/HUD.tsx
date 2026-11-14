@@ -832,6 +832,7 @@ const DesktopScanPrompt = memo(function DesktopScanPrompt() {
   const startScan = useGameStore((s) => s.startScan)
   const dayPhase = useGameStore((s) => s.dayPhase)
   const isPoweredOff = useGameStore((s) => s.isPoweredOff)
+  const planet = useGameStore((s) => s.planet)
 
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   useEffect(() => {
@@ -894,7 +895,7 @@ const DesktopScanPrompt = memo(function DesktopScanPrompt() {
                 {nearbySpot.type === 'rock'
                   ? 'Rock'
                   : nearbySpot.type === 'riverbed'
-                  ? 'Riverbed'
+                  ? (planet === 'moon' ? 'Landscape' : 'Riverbed')
                   : 'Ice'}
               </span>
               <span className="bg-black/30 px-2 py-0.5 rounded-md text-[11px] font-mono">

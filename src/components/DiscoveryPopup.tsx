@@ -5,6 +5,8 @@ import { CrystalSampleIcon, ScannerReticleIcon } from './icons/MissionIcons'
 export default function DiscoveryPopup() {
   const activeDiscovery = useGameStore((s) => s.activeDiscovery)
   const closeDiscoveryPopup = useGameStore((s) => s.closeDiscoveryPopup)
+  const planet = useGameStore((s) => s.planet)
+  const isMoon = planet === 'moon'
 
   if (!activeDiscovery) {
     return null
@@ -20,13 +22,13 @@ export default function DiscoveryPopup() {
       badgeBg: 'bg-amber-500/15 border-amber-400/40 text-amber-300',
     },
     riverbed: {
-      name: 'Ancient Riverbed',
-      icon: '🌊',
-      accentBorder: 'border-yellow-400/50',
-      badgeBg: 'bg-yellow-500/15 border-yellow-400/40 text-yellow-300',
+      name: isMoon ? 'Lunar Landscape' : 'Ancient Riverbed',
+      icon: isMoon ? '🌑' : '🌊',
+      accentBorder: isMoon ? 'border-indigo-400/50' : 'border-yellow-400/50',
+      badgeBg: isMoon ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-300' : 'bg-yellow-500/15 border-yellow-400/40 text-yellow-300',
     },
     ice: {
-      name: 'Subsurface Ice Deposit',
+      name: isMoon ? 'Shadowed Ice' : 'Ice Deposit',
       icon: '❄️',
       accentBorder: 'border-cyan-400/50',
       badgeBg: 'bg-cyan-500/15 border-cyan-400/40 text-cyan-300',
@@ -101,7 +103,7 @@ export default function DiscoveryPopup() {
               {/* Required Honesty Disclaimers */}
               <div className="mt-2 pt-2.5 border-t border-white/[0.07] text-[11px] text-slate-400 leading-snug space-y-0.5 italic">
                 <p>
-                  This is not exactly where your rover is. It is a real picture from a Mars rover.
+                  This is not exactly where your rover is. It is a {isMoon ? "real picture from NASA's Moon missions." : 'real picture from a Mars rover.'}
                 </p>
                 <p>
                   Colors may be adjusted by NASA scientists.
@@ -149,10 +151,12 @@ export default function DiscoveryPopup() {
 
             <div className="max-w-xs">
               <h3 className="font-display text-base font-bold text-cyan-200">
-                Glacial Ice Sheet Detected
+                {isMoon ? 'Permanently Shadowed Ice Detected' : 'Glacial Ice Sheet Detected'}
               </h3>
               <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                Subsurface ground radar confirmed ancient frozen water ice beneath the surface regolith. Ice deposits like this are vital for future human expeditions to manufacture rocket propellant and breathable oxygen!
+                {isMoon
+                  ? 'Subsurface ground radar confirmed ancient frozen water ice preserved in permanently shadowed lunar craters. Ice like this is vital for future human expeditions to manufacture rocket propellant and breathable oxygen!'
+                  : 'Subsurface ground radar confirmed ancient frozen water ice beneath the surface regolith. Ice deposits like this are vital for future human expeditions to manufacture rocket propellant and breathable oxygen!'}
               </p>
             </div>
           </div>

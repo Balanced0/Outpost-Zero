@@ -1,4 +1,5 @@
 import { BASE_X, BASE_Y } from '../config/gameConfig'
+import { PlanetId } from '../config/planets'
 import {
   DiscoveryType,
   DISCOVERY_COUNTS,
@@ -28,7 +29,10 @@ function createRng(seed: number) {
   }
 }
 
-export function generateDiscoverySpots(seed: number = Math.floor(Math.random() * 1000000)): DiscoverySpot[] {
+export function generateDiscoverySpots(
+  seed: number = Math.floor(Math.random() * 1000000),
+  planet: PlanetId = 'mars'
+): DiscoverySpot[] {
   const rng = createRng(seed)
   const spots: DiscoverySpot[] = []
 
@@ -63,12 +67,12 @@ export function generateDiscoverySpots(seed: number = Math.floor(Math.random() *
       })
 
       if (!tooClose) {
-        const name =
-          type === 'rock'
-            ? `Rock Sample #${idCounter}`
-            : type === 'riverbed'
-            ? `Ancient Riverbed #${idCounter}`
-            : `Ice Deposit #${idCounter}`
+        let name = `Rock sample #${idCounter}`
+        if (type === 'riverbed') {
+          name = planet === 'moon' ? `Lunar landscape #${idCounter}` : `Ancient riverbed #${idCounter}`
+        } else if (type === 'ice') {
+          name = planet === 'moon' ? `Shadowed ice #${idCounter}` : `Ice deposit #${idCounter}`
+        }
 
         spots.push({
           id: `spot-${idCounter}`,

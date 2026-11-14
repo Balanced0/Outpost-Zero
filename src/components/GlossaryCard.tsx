@@ -11,6 +11,7 @@ import { sfx } from '../utils/sound'
 export default function GlossaryCard() {
   const term = useGameStore((s) => s.glossaryCardTerm)
   const closeGlossaryCard = useGameStore((s) => s.closeGlossaryCard)
+  const planet = useGameStore((s) => s.planet)
 
   // ESC to close
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function GlossaryCard() {
 
   if (!term) return null
 
-  const entry = getGlossaryEntry(term)
+  const entry = getGlossaryEntry(term, planet)
 
   return (
     <div

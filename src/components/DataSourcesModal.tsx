@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
-import marsPhotosJson from '../data/marsPhotos.json'
+import photosJson from '../data/photos.json'
 import { NASA_FACTS } from '../data/facts'
 import {
   DatabaseScienceIcon,
@@ -8,15 +8,16 @@ import {
   RocketIcon,
 } from './icons/MissionIcons'
 
-interface MarsPhoto {
+interface NasaPhoto {
   file: string
+  planet: string
   tag: string
   title: string
   credit: string
   sourceUrl: string
 }
 
-const photos = marsPhotosJson as MarsPhoto[]
+const allPhotos = photosJson as NasaPhoto[]
 
 export default function DataSourcesModal() {
   const showDataSourcesModal = useGameStore((s) => s.showDataSourcesModal)
@@ -25,6 +26,13 @@ export default function DataSourcesModal() {
   const missionSpaceWeather = useGameStore((s) => s.missionSpaceWeather)
   const stormEventsToday = useGameStore((s) => s.stormEventsToday)
   const dayLogs = useGameStore((s) => s.dayLogs)
+  const planet = useGameStore((s) => s.planet)
+  const planetsPlayed = useGameStore((s) => s.planetsPlayed)
+
+  const showMars = planetsPlayed.includes('mars') || planet === 'mars'
+  const showMoon = planetsPlayed.includes('moon') || planet === 'moon'
+  const marsPhotos = allPhotos.filter((p) => p.planet === 'mars')
+  const moonPhotos = allPhotos.filter((p) => p.planet === 'moon')
 
   // ESC key to close modal
   useEffect(() => {
@@ -150,7 +158,7 @@ export default function DataSourcesModal() {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="font-display font-bold text-sm text-amber-300 flex items-center gap-2">
               <span>📷</span>
-              <span>2. NASA Martian Photography</span>
+              <span>2. NASA Photography</span>
             </h3>
             <span className="text-[10px] text-slate-400 italic">
               Colors may be adjusted by NASA scientists.
@@ -158,29 +166,75 @@ export default function DataSourcesModal() {
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed">
-            All surface rock and ancient terrain discoveries feature real photographs captured by NASA rovers on Mars.
+            Surface rock and terrain discoveries feature real photographs captured by NASA missions.
           </p>
 
-          <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
-            {photos.map((p) => (
-              <div
-                key={p.file}
-                className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] flex items-center justify-between gap-2"
-              >
-                <div>
-                  <div className="font-semibold text-slate-200">{p.title}</div>
-                  <div className="text-[10px] text-slate-400 font-mono">Credit: {p.credit}</div>
+          <div className="flex flex-col gap-3">
+            {showMars && (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[10px] font-mono font-bold text-orange-300 uppercase tracking-wider">Mars photos</div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
+                  {marsPhotos.map((p) => (
+                    <div
+                      key={p.file}
+                      className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] flex items-center justify-between gap-2"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-200">{p.title}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">Credit: {p.credit}</div>
+                      </div>
+                      <a
+                        href={p.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 px-2.5 py-1 rounded-lg font-mono flex-shrink-0 transition-colors"
+                      >
+                        NASA ↗
+                      </a>
+                    </div>
+                  ))}
+                  <div className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] text-[10px] text-slate-400 italic">
+                    Ice deposits: Illustrated (no NASA photo yet)
+                  </div>
                 </div>
-                <a
-                  href={p.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 px-2.5 py-1 rounded-lg font-mono flex-shrink-0 transition-colors"
-                >
-                  NASA JPL ↗
-                </a>
               </div>
-            ))}
+            )}
+
+            {showMoon && (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[10px] font-mono font-bold text-sky-300 uppercase tracking-wider">Moon photos</div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
+                  {moonPhotos.map((p) => (
+                    <div
+                      key={p.file}
+                      className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] flex items-center justify-between gap-2"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-200">{p.title}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">Credit: {p.credit}</div>
+                      </div>
+                      <a
+                        href={p.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 px-2.5 py-1 rounded-lg font-mono flex-shrink-0 transition-colors"
+                      >
+                        NASA ↗
+                      </a>
+                    </div>
+                  ))}
+                  <div className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] text-[10px] text-slate-400 italic">
+                    Ice deposits: Illustrated (no NASA photo yet)
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!showMars && !showMoon && (
+              <div className="text-[11px] text-slate-400 italic">
+                Start a mission to see photo credits for your planet.
+              </div>
+            )}
           </div>
         </div>
 

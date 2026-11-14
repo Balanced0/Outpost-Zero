@@ -123,6 +123,7 @@ interface GameState {
   isGameStarted: boolean
   commanderName: string
   planet: PlanetId
+  planetsPlayed: PlanetId[]
   difficulty: DifficultyId
   skipTutorial: boolean
   powerBudget: number
@@ -267,6 +268,7 @@ export const useGameStore = create<GameState>((set, get) => {
     isGameStarted: false,
     commanderName: initialCommanderName,
     planet: initialPlanet,
+    planetsPlayed: [],
     difficulty: initialDifficulty,
     skipTutorial: initialSkipTutorial,
     powerBudget: initialBudget,
@@ -350,13 +352,15 @@ export const useGameStore = create<GameState>((set, get) => {
       const split = getDefaultPowerSplit(powerBudget)
       const cap = BASE_ROVER_CAPACITY + split.rover * ROVER_CAPACITY_PER_POINT
       const tutStep: TutorialStep = skipTutorial ? null : 'day1_sliders'
-      const newSpots = generateDiscoverySpots()
+      const newSpots = generateDiscoverySpots(undefined, planet)
+      const played = Array.from(new Set([...get().planetsPlayed, planet]))
 
       set({
         isGameStarted: true,
         isLoadingSpaceWeather: true,
         commanderName: commanderName.trim() || 'Commander',
         planet,
+        planetsPlayed: played,
         difficulty,
         skipTutorial,
         powerBudget,
@@ -594,7 +598,7 @@ export const useGameStore = create<GameState>((set, get) => {
           s.id === spot.id ? { ...s, collected: true } : s
         )
 
-        const photo = selectPhotoForDiscovery(spot.type)
+        const photo = selectPhotoForDiscovery(spot.type, state.planet)
 
         set({
           battery: newBattery,
@@ -1034,8 +1038,8 @@ export const useGameStore = create<GameState>((set, get) => {
 
     resetMission: () => {
       resetPhotoHistory()
-      const newSpots = generateDiscoverySpots()
       const state = get()
+      const newSpots = generateDiscoverySpots(undefined, state.planet)
       const split = getDefaultPowerSplit(state.powerBudget)
       const defaultCapacity =
         BASE_ROVER_CAPACITY + split.rover * ROVER_CAPACITY_PER_POINT

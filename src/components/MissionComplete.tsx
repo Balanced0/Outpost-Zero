@@ -1,25 +1,31 @@
 import { useGameStore } from '../store/gameStore'
-import marsPhotosJson from '../data/marsPhotos.json'
+import photosJson from '../data/photos.json'
 import { RocketIcon, CrystalSampleIcon } from './icons/MissionIcons'
 
-interface MarsPhoto {
+interface NasaPhoto {
   file: string
+  planet: string
   tag: string
   title: string
   credit: string
   sourceUrl: string
 }
 
-const photos = marsPhotosJson as MarsPhoto[]
+const allPhotos = photosJson as NasaPhoto[]
 
 export default function MissionComplete() {
   const isMissionComplete = useGameStore((s) => s.isMissionComplete)
   const totalDiscoveryPoints = useGameStore((s) => s.totalDiscoveryPoints)
   const resetMission = useGameStore((s) => s.resetMission)
+  const planet = useGameStore((s) => s.planet)
 
   if (!isMissionComplete) {
     return null
   }
+
+  const photos = allPhotos.filter((p) => p.planet === planet)
+  const planetName = planet === 'moon' ? 'the Moon' : 'Mars'
+  const dayTerm = planet === 'moon' ? 'lunar days' : 'Martian days'
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#04060d]/85 backdrop-blur-md p-4 pointer-events-auto select-none overflow-y-auto animate-fade-in">
@@ -30,13 +36,13 @@ export default function MissionComplete() {
 
         <div>
           <span className="text-xs font-mono font-semibold tracking-widest text-orange-400 uppercase">
-            Outpost Zero · 20-Day Sol Complete
+            Outpost Zero · 20-Day Mission Complete
           </span>
           <h1 className="font-display text-3xl font-bold mt-1 text-white">
             Mission Complete!
           </h1>
           <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-            You successfully survived all 20 Martian days exploring the surface and keeping Outpost Zero running!
+            You successfully survived all 20 {dayTerm} exploring the surface and keeping Outpost Zero running on {planetName}!
           </p>
         </div>
 
@@ -68,12 +74,12 @@ export default function MissionComplete() {
               <span>NASA Photo Credits &amp; Attribution</span>
             </span>
             <span className="text-[10px] text-slate-400 font-mono">
-              Public Domain / NASA JPL
+              Public Domain / NASA
             </span>
           </div>
 
           <p className="text-[11px] text-slate-400 leading-snug">
-            All Martian imagery used for rock samples and ancient terrain discoveries are real photos captured by NASA Mars rovers.
+            All imagery used for rock samples and terrain discoveries are real photos captured by NASA {planet === 'moon' ? "Moon missions" : 'Mars rovers'}.
           </p>
 
           <div className="max-h-40 overflow-y-auto space-y-2 pr-1 text-xs">
@@ -94,10 +100,13 @@ export default function MissionComplete() {
                   rel="noopener noreferrer"
                   className="text-[10px] text-sky-400 hover:text-sky-300 underline font-mono inline-flex items-center gap-1 mt-0.5"
                 >
-                  <span>View on NASA Photojournal ↗</span>
+                  <span>View on NASA ↗</span>
                 </a>
               </div>
             ))}
+            <div className="bg-slate-900/80 rounded-xl p-2.5 border border-white/[0.06] text-[10px] text-slate-400 italic">
+              Ice deposits: Illustrated (no NASA photo yet)
+            </div>
           </div>
         </div>
 
