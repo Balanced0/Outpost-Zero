@@ -4,16 +4,14 @@ import PreloadScene from '../scenes/PreloadScene'
 import MarsScene from '../scenes/MarsScene'
 import { useGameStore } from '../store/gameStore'
 import { getClampedCanvasSize } from '../utils/qualitySettings'
-import { debugLogger } from '../utils/debugLogger'
+import { debugLogger, setActiveGame, getActiveGame } from '../utils/debugLogger'
+
+export { getActiveGame }
 
 // Module-level singletons to guarantee running game instance tracking
 let activeGameInstance: Phaser.Game | null = null
 let hasFallenBackToCanvas = false
 let isFallbackInProgress = false
-
-export function getActiveGame(): Phaser.Game | null {
-  return activeGameInstance
-}
 
 function getRequestedRenderer(): number {
   if (typeof window === 'undefined') return Phaser.AUTO
@@ -45,6 +43,7 @@ export default function GameCanvas() {
           console.warn('[Phaser Lifecycle] Error during game destroy:', e)
         }
         activeGameInstance = null
+        setActiveGame(null)
         debugLogger.setLiveGameCount(0)
       }
       return
@@ -121,6 +120,7 @@ export default function GameCanvas() {
           if (hasSwapped) return
           hasSwapped = true
           activeGameInstance = replacementGame
+          setActiveGame(replacementGame)
           debugLogger.setLiveGameCount(1)
           isFallbackInProgress = false
 
@@ -221,6 +221,7 @@ export default function GameCanvas() {
       try {
         const game = new Phaser.Game(config)
         activeGameInstance = game
+        setActiveGame(game)
         debugLogger.setLiveGameCount(1)
 
         const canvas = game.canvas
@@ -353,6 +354,7 @@ export default function GameCanvas() {
           console.warn('[Phaser Lifecycle] Destroy on unmount failed:', e)
         }
         activeGameInstance = null
+        setActiveGame(null)
         debugLogger.setLiveGameCount(0)
       }
       if (container) {

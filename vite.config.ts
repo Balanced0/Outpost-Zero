@@ -40,6 +40,25 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/phaser')) {
+              return 'vendor-phaser'
+            }
+            if (
+              id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/scheduler')
+            ) {
+              return 'vendor-react'
+            }
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1600,
+    },
     server: { port: 5173 },
   }
 })

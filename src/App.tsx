@@ -1,4 +1,4 @@
-import GameCanvas from './components/GameCanvas'
+import { lazy, Suspense } from 'react'
 import HUD from './components/HUD'
 import Joystick from './components/Joystick'
 import SunsetOverlay from './components/SunsetOverlay'
@@ -19,6 +19,9 @@ import { useGameStore } from './store/gameStore'
 import { useAutoGlossaryCards } from './hooks/useAutoGlossaryCards'
 import { useGameSounds } from './hooks/useGameSounds'
 
+// Lazy-load Phaser GameCanvas chunk only when the player presses "Launch mission"
+const GameCanvas = lazy(() => import('./components/GameCanvas'))
+
 function AppInner() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
   useAutoGlossaryCards()
@@ -27,7 +30,11 @@ function AppInner() {
   return (
     <div className="fixed inset-0 w-[100vw] h-[100dvh] overflow-hidden bg-black select-none m-0 p-0">
       {/* Phaser Canvas ONLY mounted and started after "Launch mission" is pressed */}
-      {isGameStarted && <GameCanvas />}
+      {isGameStarted && (
+        <Suspense fallback={null}>
+          <GameCanvas />
+        </Suspense>
+      )}
       <SunsetOverlay />
       <StormOverlay />
       <HUD />
