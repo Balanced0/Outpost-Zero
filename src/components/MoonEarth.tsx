@@ -13,7 +13,10 @@ export default function MoonEarth() {
   return (
     <div
       className="fixed z-20 pointer-events-none select-none flex flex-col items-center"
-      style={{ bottom: '7rem', right: '1.1rem' }}
+      style={{
+        bottom: 'max(6.8rem, calc(env(safe-area-inset-bottom) + 6.4rem))',
+        right: 'max(1.1rem, env(safe-area-inset-right))',
+      }}
       aria-hidden="true"
     >
       <div className="relative flex items-center justify-center">

@@ -3,7 +3,6 @@ import { useGameStore } from '../store/gameStore'
 import { sfx } from '../utils/sound'
 import { ScannerReticleIcon } from './icons/MissionIcons'
 
-const OUTER_RADIUS = 46 // 92px diameter outer ring
 const THUMB_RADIUS = 20 // 40px diameter thumb
 
 /**
@@ -57,10 +56,12 @@ export default function Joystick() {
     const thumb = thumbRef.current
     if (!outer || !thumb || !originRef.current) return
 
+    const outerRadius = outer.getBoundingClientRect().width / 2
+    const maxMove = Math.max(1, outerRadius - THUMB_RADIUS)
     const rawDx = tx - originRef.current.x
     const rawDy = ty - originRef.current.y
     const dist = Math.sqrt(rawDx * rawDx + rawDy * rawDy)
-    const clampedDist = Math.min(dist, OUTER_RADIUS - THUMB_RADIUS)
+    const clampedDist = Math.min(dist, maxMove)
     const angle = Math.atan2(rawDy, rawDx)
 
     const clampedX = Math.cos(angle) * clampedDist
@@ -70,7 +71,6 @@ export default function Joystick() {
     thumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`
 
     // Normalize to -1..1
-    const maxMove = OUTER_RADIUS - THUMB_RADIUS
     const normX = maxMove > 0 ? clampedX / maxMove : 0
     const normY = maxMove > 0 ? clampedY / maxMove : 0
 
@@ -95,8 +95,8 @@ export default function Joystick() {
     activeTouchId.current = touch.identifier
     const rect = outerRef.current!.getBoundingClientRect()
     originRef.current = {
-      x: rect.left + OUTER_RADIUS,
-      y: rect.top + OUTER_RADIUS,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
     }
     updateThumb(touch.clientX, touch.clientY)
   }
@@ -124,21 +124,19 @@ export default function Joystick() {
 
   return (
     <>
-      {/* 1. Virtual Joystick — Bottom-Left (Safe Area Insets Respected) */}
+      {/* 1. Virtual Joystick — Bottom-Left (Safe Area Insets & Tablet Ergonomics Respected) */}
       <div
-        className="fixed z-30 pointer-events-none select-none"
+        className="fixed z-30 pointer-events-none select-none left-4 bottom-4 md:left-6 md:bottom-6"
         style={{
-          left: 'max(1rem, env(safe-area-inset-left))',
-          bottom: 'max(1rem, env(safe-area-inset-bottom))',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
           touchAction: 'none',
         }}
       >
         <div
           ref={outerRef}
-          className="relative flex items-center justify-center rounded-full bg-slate-950/65 border border-white/25 backdrop-blur-md pointer-events-auto shadow-[0_8px_30px_rgba(0,0,0,0.7)] active:border-orange-400/80"
+          className="relative w-[92px] h-[92px] md:w-[112px] md:h-[112px] flex items-center justify-center rounded-full bg-slate-950/65 border border-white/25 backdrop-blur-md pointer-events-auto shadow-[0_8px_30px_rgba(0,0,0,0.7)] active:border-orange-400/80"
           style={{
-            width: OUTER_RADIUS * 2,
-            height: OUTER_RADIUS * 2,
             touchAction: 'none',
           }}
           onTouchStart={handleTouchStart}
@@ -166,19 +164,19 @@ export default function Joystick() {
         </div>
       </div>
 
-      {/* 2. Dedicated Touch Scan Button — Bottom-Right (Safe Area Insets Respected) */}
+      {/* 2. Dedicated Touch Scan Button — Bottom-Right (Safe Area Insets & Tablet Ergonomics Respected) */}
       <div
-        className="fixed z-30 pointer-events-none select-none flex flex-col items-center gap-1.5"
+        className="fixed z-30 pointer-events-none select-none flex flex-col items-center gap-1.5 right-4 bottom-4 md:right-6 md:bottom-6"
         style={{
-          right: 'max(1rem, env(safe-area-inset-right))',
-          bottom: 'max(1rem, env(safe-area-inset-bottom))',
+          paddingRight: 'env(safe-area-inset-right)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
           touchAction: 'none',
         }}
       >
         {activeScan ? (
           // While scanning: prominent scanning state with progress
           <div
-            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full hud-glass border-2 border-cyan-400 text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.4)] flex flex-col items-center justify-center pointer-events-auto"
+            className="w-16 h-16 md:w-[72px] md:h-[72px] min-w-[56px] min-h-[56px] rounded-full hud-glass border-2 border-cyan-400 text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.4)] flex flex-col items-center justify-center pointer-events-auto"
             style={{ touchAction: 'none' }}
           >
             <div className="w-5 h-5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin mb-0.5" />
@@ -187,14 +185,14 @@ export default function Joystick() {
             </span>
           </div>
         ) : nearbySpot ? (
-          // Active nearby discovery: pulsing, thumb-friendly 64px button
+          // Active nearby discovery: pulsing, thumb-friendly button
           <button
             type="button"
             onClick={() => {
               sfx('scan', { volume: 0.7 })
               startScan()
             }}
-            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-95 text-white font-display font-bold shadow-[0_0_25px_rgba(245,158,11,0.5)] border-2 border-amber-300 flex flex-col items-center justify-center pointer-events-auto cursor-pointer animate-bounce"
+            className="w-16 h-16 md:w-[72px] md:h-[72px] min-w-[56px] min-h-[56px] rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-95 text-white font-display font-bold shadow-[0_0_25px_rgba(245,158,11,0.5)] border-2 border-amber-300 flex flex-col items-center justify-center pointer-events-auto cursor-pointer animate-bounce"
             style={{ touchAction: 'none' }}
             title="Scan Discovery"
             aria-label="Scan Discovery"
@@ -207,7 +205,7 @@ export default function Joystick() {
         ) : (
           // Inactive Scan placeholder
           <div
-            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-slate-950/50 border border-white/15 text-slate-400 flex flex-col items-center justify-center pointer-events-auto opacity-55 backdrop-blur-sm"
+            className="w-16 h-16 md:w-[72px] md:h-[72px] min-w-[56px] min-h-[56px] rounded-full bg-slate-950/50 border border-white/15 text-slate-400 flex flex-col items-center justify-center pointer-events-auto opacity-55 backdrop-blur-sm"
             style={{ touchAction: 'none' }}
           >
             <ScannerReticleIcon size={18} />

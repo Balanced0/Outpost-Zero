@@ -5,40 +5,17 @@ import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 import { sfx } from '../utils/sound'
 import { prefetchDonkiInIdle } from '../data/stormSource'
 import {
+  PlanetarySpaceCanvas,
+  MiniPlanetVideoCanvas,
+} from './PlanetarySpaceCanvas'
+import {
   RocketIcon,
   AstronautIcon,
-  MarsGlobeIcon,
-  MoonGlobeIcon,
   DatabaseScienceIcon,
   ZapBoltIcon,
   CrystalSampleIcon,
   RadarDishIcon,
 } from './icons/MissionIcons'
-
-// Lightweight fixed star coordinates for instant pure-CSS starfield
-const STAR_DOTS = [
-  { x: 6, y: 10, size: 2, opacity: 0.75 },
-  { x: 15, y: 32, size: 1.5, opacity: 0.45 },
-  { x: 24, y: 16, size: 2.2, opacity: 0.8 },
-  { x: 11, y: 74, size: 1.5, opacity: 0.4 },
-  { x: 22, y: 88, size: 2, opacity: 0.65 },
-  { x: 36, y: 7, size: 1.5, opacity: 0.5 },
-  { x: 44, y: 24, size: 2, opacity: 0.7 },
-  { x: 56, y: 12, size: 1.5, opacity: 0.6 },
-  { x: 69, y: 29, size: 2, opacity: 0.8 },
-  { x: 83, y: 14, size: 1.5, opacity: 0.5 },
-  { x: 93, y: 22, size: 2, opacity: 0.75 },
-  { x: 89, y: 66, size: 2.5, opacity: 0.85 },
-  { x: 75, y: 80, size: 1.5, opacity: 0.4 },
-  { x: 86, y: 91, size: 2, opacity: 0.7 },
-  { x: 63, y: 93, size: 1.5, opacity: 0.5 },
-  { x: 49, y: 84, size: 2, opacity: 0.6 },
-  { x: 34, y: 65, size: 1.5, opacity: 0.4 },
-  { x: 4, y: 50, size: 2, opacity: 0.6 },
-  { x: 96, y: 46, size: 1.5, opacity: 0.5 },
-  { x: 18, y: 54, size: 1, opacity: 0.35 },
-  { x: 78, y: 44, size: 1.5, opacity: 0.55 },
-]
 
 export default function StartMenu() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
@@ -48,11 +25,24 @@ export default function StartMenu() {
   const saved = loadSavedSettings()
   const [commanderName, setCommanderName] = useState(saved.commanderName || 'Commander')
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetId>(saved.planet || 'mars')
+  const [hoveredPlanet, setHoveredPlanet] = useState<PlanetId | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyId>(
     saved.difficulty || 'commander'
   )
   const [skipTutorial, setSkipTutorial] = useState<boolean>(saved.skipTutorial ?? false)
-  const [planetLoaded, setPlanetLoaded] = useState(false)
+
+  // Interactive cursor state for 3D card tilt & glossy spotlight reflection
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0, spotX: 50, spotY: 25 })
+
+  // Live ticking telemetry clock for aerospace realism
+  const [telemetryTick, setTelemetryTick] = useState(0)
+  useEffect(() => {
+    if (isGameStarted) return
+    const interval = setInterval(() => {
+      setTelemetryTick((t) => (t + 1) % 1000)
+    }, 120)
+    return () => clearInterval(interval)
+  }, [isGameStarted])
 
   useEffect(() => {
     prefetchDonkiInIdle()
@@ -60,6 +50,18 @@ export default function StartMenu() {
 
   if (isGameStarted) {
     return null
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { innerWidth, innerHeight } = window
+    const nx = (e.clientX / Math.max(1, innerWidth) - 0.5) * 2 // -1..1
+    const ny = (e.clientY / Math.max(1, innerHeight) - 0.5) * 2 // -1..1
+    setMousePos({
+      x: nx,
+      y: ny,
+      spotX: Math.round((e.clientX / Math.max(1, innerWidth)) * 100),
+      spotY: Math.round((e.clientY / Math.max(1, innerHeight)) * 100),
+    })
   }
 
   const handleLaunch = () => {
@@ -72,110 +74,155 @@ export default function StartMenu() {
     })
   }
 
-  const isMars = selectedPlanet === 'mars'
-  const planetImgSrc =
-    selectedPlanet === 'moon' ? '/assets/menu/planet05.png' : '/assets/menu/planet02.png'
+  const activeThemePlanet = hoveredPlanet || selectedPlanet
+  const isMars = activeThemePlanet === 'mars'
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto tech-grid-bg"
+      onMouseMove={handleMouseMove}
+      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 pointer-events-auto select-none overflow-y-auto tech-grid-bg transition-colors duration-500"
       style={{
         background: isMars
-          ? 'radial-gradient(ellipse at 50% 0%, rgba(154, 52, 18, 0.28) 0%, rgba(15, 23, 42, 0.92) 48%, #05070e 100%)'
-          : 'radial-gradient(ellipse at 50% 0%, rgba(14, 116, 144, 0.25) 0%, rgba(15, 23, 42, 0.92) 48%, #05070e 100%)',
+          ? `radial-gradient(circle at ${mousePos.spotX}% ${mousePos.spotY}%, rgba(249, 115, 22, 0.22) 0%, transparent 42%), radial-gradient(ellipse at 75% 20%, rgba(194, 65, 12, 0.35) 0%, rgba(15, 23, 42, 0.92) 55%, #03050a 100%)`
+          : `radial-gradient(circle at ${mousePos.spotX}% ${mousePos.spotY}%, rgba(34, 211, 238, 0.22) 0%, transparent 42%), radial-gradient(ellipse at 25% 75%, rgba(14, 116, 144, 0.35) 0%, rgba(15, 23, 42, 0.92) 55%, #03050a 100%)`,
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
         paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
         paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
       }}
     >
-      {/* 1. Ambient Starfield & Orbital Rings */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        {STAR_DOTS.map((star, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white pointer-events-none"
-            style={{
-              left: `${star.x}%`,
-              top: `${star.y}%`,
-              width: `${star.size}px`,
-              height: `${star.size}px`,
-              opacity: star.opacity,
-            }}
-          />
-        ))}
+      {/* ============================================================== */}
+      {/* 1. 60FPS VIDEO-LIKE INTERACTIVE MARS & MOON COSMOS CANVAS       */}
+      {/* ============================================================== */}
+      <PlanetarySpaceCanvas
+        selectedPlanet={selectedPlanet}
+        hoveredPlanet={hoveredPlanet}
+      />
 
-        {/* Decorative Orbital Arcs */}
-        <svg
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] opacity-[0.07]"
-          viewBox="0 0 900 900"
-          fill="none"
-        >
-          <circle cx="450" cy="450" r="320" stroke="white" strokeWidth="1" strokeDasharray="6 8" />
-          <circle cx="450" cy="450" r="420" stroke="white" strokeWidth="1" />
-        </svg>
-      </div>
-
-      {/* 2. Floating Planet Render Illustration */}
+      {/* ============================================================== */}
+      {/* 2. ULTRA-GLOSSY INTERACTIVE COMMAND DECK                       */}
+      {/* ============================================================== */}
       <div
-        className="absolute -top-12 -right-12 md:-top-16 md:-right-16 w-64 h-64 md:w-[460px] md:h-[460px] pointer-events-none overflow-hidden animate-float-slow"
-        aria-hidden="true"
+        className="mission-panel rounded-[28px] max-w-[620px] w-full p-3.5 sm:p-5 text-white flex flex-col gap-2.5 my-auto relative z-10 max-h-[96dvh] overflow-y-auto animate-modal-in transition-shadow duration-500"
+        style={{
+          transform: `perspective(1400px) rotateX(${(mousePos.y * -1.4).toFixed(2)}deg) rotateY(${(
+            mousePos.x * 1.4
+          ).toFixed(2)}deg)`,
+          boxShadow: isMars
+            ? '0 32px 90px -12px rgba(0, 0, 0, 0.92), 0 0 65px -10px rgba(249, 115, 22, 0.34), 0 1.5px 0 0 rgba(255, 255, 255, 0.38) inset'
+            : '0 32px 90px -12px rgba(0, 0, 0, 0.92), 0 0 65px -10px rgba(34, 211, 238, 0.34), 0 1.5px 0 0 rgba(255, 255, 255, 0.38) inset',
+        }}
       >
+        {/* Dynamic Cursor-Following Specular Glass Reflection */}
         <div
-          className={`absolute inset-8 rounded-full blur-3xl transition-colors duration-700 ${
-            isMars ? 'bg-orange-500/15' : 'bg-cyan-400/15'
-          }`}
+          className="pointer-events-none absolute inset-0 rounded-[30px] transition-opacity duration-300"
+          style={{
+            background: `radial-gradient(420px circle at ${mousePos.spotX}% ${mousePos.spotY}%, ${
+              isMars ? 'rgba(251, 146, 60, 0.13)' : 'rgba(34, 211, 238, 0.13)'
+            }, transparent 65%)`,
+          }}
+          aria-hidden="true"
         />
-        <img
-          src={planetImgSrc}
-          alt=""
-          loading="lazy"
-          onLoad={() => setPlanetLoaded(true)}
-          onError={() => setPlanetLoaded(false)}
-          className={`w-full h-full object-contain pointer-events-none select-none transition-all duration-700 ${
-            planetLoaded ? 'opacity-30 scale-100' : 'opacity-0 scale-95'
-          }`}
-        />
-      </div>
 
-      {/* 3. Main Mission Command Card */}
-      <div className="mission-panel rounded-[28px] max-w-xl w-full p-4 sm:p-7 text-white flex flex-col gap-4 my-auto relative z-10 max-h-[93dvh] overflow-y-auto animate-modal-in">
-        {/* Top Accent Line */}
+        {/* Specular Top Glass Edge Highlight */}
         <div
-          className={`absolute top-0 left-8 right-8 h-[2px] rounded-full transition-colors duration-500 ${
+          className={`absolute top-0 left-6 right-6 h-[2.5px] rounded-full transition-colors duration-500 ${
             isMars
-              ? 'bg-gradient-to-r from-transparent via-orange-500/80 to-transparent'
-              : 'bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent'
+              ? 'bg-gradient-to-r from-transparent via-orange-400 to-transparent shadow-[0_0_18px_rgba(249,115,22,0.95)]'
+              : 'bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.95)]'
           }`}
         />
 
-        {/* Header: Mission Badge, Title, Tagline */}
-        <div className="text-center flex flex-col items-center pt-0.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.1] text-[10px] sm:text-[11px] font-mono font-semibold tracking-widest text-orange-300 uppercase mb-2 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+        {/* Top Live Telemetry & Solar Wind Monitor Bar */}
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-950/75 border border-white/[0.14] text-[10px] font-mono text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] relative z-10">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isMars ? 'bg-orange-400' : 'bg-cyan-400'
+                }`}
+              />
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isMars ? 'bg-orange-500' : 'bg-cyan-400'
+                }`}
+              />
+            </span>
+            <span className="font-bold tracking-wider uppercase text-white truncate">
+              DSN TELEMETRY // {isMars ? 'MARS ORBITAL SECTOR 04' : 'LUNAR SOUTH POLE 09'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <span className="hidden sm:inline text-amber-300/90 font-semibold">
+              SOL-CLK {(1400 + (telemetryTick % 600)).toString().padStart(4, '0')}
+            </span>
+            <div className="flex items-end gap-[2px] h-3" aria-hidden="true">
+              <span
+                className={`w-[2.5px] h-full rounded-full origin-bottom animate-wave-bar ${
+                  isMars ? 'bg-orange-400' : 'bg-cyan-400'
+                }`}
+                style={{ animationDelay: '0s' }}
+              />
+              <span
+                className={`w-[2.5px] h-full rounded-full origin-bottom animate-wave-bar ${
+                  isMars ? 'bg-amber-300' : 'bg-sky-300'
+                }`}
+                style={{ animationDelay: '0.2s' }}
+              />
+              <span
+                className={`w-[2.5px] h-full rounded-full origin-bottom animate-wave-bar ${
+                  isMars ? 'bg-orange-500' : 'bg-cyan-500'
+                }`}
+                style={{ animationDelay: '0.4s' }}
+              />
+              <span
+                className={`w-[2.5px] h-full rounded-full origin-bottom animate-wave-bar ${
+                  isMars ? 'bg-amber-400' : 'bg-sky-400'
+                }`}
+                style={{ animationDelay: '0.1s' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Header: Mission Title, Glossy Badge & Interactive Trajectory Strip */}
+        <div className="text-center flex flex-col items-center relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-gradient-to-r from-white/[0.08] via-white/[0.15] to-white/[0.08] border border-white/25 text-[10px] font-mono font-semibold tracking-widest text-amber-200 uppercase mb-1 shadow-[0_4px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.3)] relative overflow-hidden">
+            <span className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer pointer-events-none" />
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
             <span>NASA Space Apps Challenge · Mission Trainer</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-4xl md:text-[44px] font-bold tracking-tight text-white leading-none">
-            OUTPOST <span className={isMars ? 'text-orange-400' : 'text-cyan-400'}>ZERO</span>
+          <h1 className="font-display text-2xl sm:text-3xl md:text-[38px] font-bold tracking-tight text-white leading-none drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)]">
+            OUTPOST{' '}
+            <span
+              className={`bg-clip-text text-transparent bg-gradient-to-r transition-all duration-500 ${
+                isMars
+                  ? 'from-orange-300 via-amber-400 to-rose-500 drop-shadow-[0_0_24px_rgba(249,115,22,0.65)]'
+                  : 'from-cyan-200 via-sky-400 to-blue-500 drop-shadow-[0_0_24px_rgba(34,211,238,0.65)]'
+              }`}
+            >
+              ZERO
+            </span>
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-300/90 mt-2 font-medium tracking-wide max-w-md">
+          <p className="text-[11px] sm:text-xs text-slate-200/95 mt-1 font-medium tracking-wide max-w-md">
             Survive the Sun. Power the habitat. Explore the unknown across a 20-sol expedition.
           </p>
         </div>
 
-        {/* Commander Callsign Input */}
-        <div className="bg-slate-950/55 rounded-2xl p-3.5 border border-white/[0.08] flex flex-col gap-2">
+        {/* Commander Callsign Input & Live Trajectory Readout */}
+        <div className="glossy-card rounded-2xl p-2.5 border border-white/[0.16] flex flex-col gap-1.5 relative z-10">
           <div className="flex items-center justify-between">
             <label
               htmlFor="commander-name-input"
-              className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5"
+              className="text-[11px] font-mono font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5"
             >
-              <AstronautIcon size={15} className="text-orange-400" />
+              <AstronautIcon size={15} className={isMars ? 'text-orange-400' : 'text-cyan-400'} />
               <span>Welcome, Mission Commander</span>
             </label>
-            <span className="text-[10px] font-mono text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06]">
+            <span className="text-[10px] font-mono text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md border border-amber-400/35">
               ID // {(commanderName.trim() || 'COMMANDER').toUpperCase().slice(0, 12)}
             </span>
           </div>
@@ -188,139 +235,164 @@ export default function StartMenu() {
               value={commanderName}
               onChange={(e) => setCommanderName(e.target.value)}
               placeholder="Commander"
-              className="w-full min-h-[44px] bg-slate-900/90 border border-white/10 rounded-xl pl-3.5 pr-14 py-2 text-white font-semibold text-sm tracking-wide focus:outline-none focus:border-orange-400/80 focus:ring-2 focus:ring-orange-500/20 transition-all"
+              className="w-full min-h-[42px] bg-slate-950/90 border border-white/15 rounded-xl pl-3.5 pr-14 py-1.5 text-white font-semibold text-sm tracking-wide shadow-[inset_0_2px_6px_rgba(0,0,0,0.65)] focus:outline-none focus:border-orange-400/90 focus:ring-2 focus:ring-orange-500/25 transition-all"
             />
-            <span className="absolute right-3.5 text-[11px] font-mono text-slate-500 pointer-events-none">
+            <span className="absolute right-3.5 text-[11px] font-mono text-slate-400 pointer-events-none">
               {commanderName.length}/16
             </span>
           </div>
         </div>
 
-        {/* Destination Selection (Mars vs Moon) */}
-        <div className="flex flex-col gap-2">
+        {/* ============================================================== */}
+        {/* 01 · LIVE 60FPS ANIMATED MARS & MOON SELECTION CARDS           */}
+        {/* ============================================================== */}
+        <div className="flex flex-col gap-2 relative z-10">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-              01 · Select Target Body
+            <span className="text-[11px] font-mono font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping" />
+              01 · Select Target World
             </span>
-            <span className="text-[10px] font-mono text-slate-400">
-              20-Sol Surface Deployment
+            <span className="text-[10px] font-mono text-sky-300">
+              Move cursor to interact with orbits
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Mars Card */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* MARS LIVE VIDEO-CANVAS CARD */}
             <button
               type="button"
+              onMouseEnter={() => setHoveredPlanet('mars')}
+              onMouseLeave={() => setHoveredPlanet(null)}
               onClick={() => {
                 sfx('toggle', { volume: 0.5 })
                 setSelectedPlanet('mars')
               }}
-              className={`group p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col gap-2 min-h-[44px] relative overflow-hidden ${
+              className={`group glossy-card p-3.5 rounded-2xl border text-left cursor-pointer flex flex-col gap-2 min-h-[44px] relative overflow-hidden ${
                 selectedPlanet === 'mars'
-                  ? 'bg-gradient-to-b from-orange-950/60 to-slate-900/90 border-orange-400/80 shadow-[0_0_24px_-4px_rgba(249,115,22,0.35)]'
-                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 hover:bg-slate-900/80 opacity-85 hover:opacity-100'
+                  ? 'bg-gradient-to-br from-orange-950/85 via-slate-900/90 to-rose-950/75 border-orange-400 shadow-[0_0_36px_-4px_rgba(249,115,22,0.55),inset_0_1.5px_0_rgba(255,255,255,0.4)]'
+                  : 'bg-slate-900/65 border-white/[0.14] hover:border-orange-400/65 opacity-90 hover:opacity-100'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
-                      selectedPlanet === 'mars'
-                        ? 'bg-orange-500/20 border-orange-400/50 text-orange-300'
-                        : 'bg-white/5 border-white/10 text-orange-400/80'
-                    }`}
-                  >
-                    <MarsGlobeIcon size={21} />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-bold text-base text-white leading-tight">
-                      Mars
-                    </h3>
-                    <span className="text-[10px] font-mono text-orange-300/90">
+              <div
+                className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-orange-300/15 to-transparent animate-shimmer pointer-events-none"
+                aria-hidden="true"
+              />
+
+              <div className="flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <MiniPlanetVideoCanvas
+                    planet="mars"
+                    active={selectedPlanet === 'mars'}
+                    hovered={hoveredPlanet === 'mars'}
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
+                        Mars
+                      </h3>
+                      <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-orange-500/25 border border-orange-400/50 text-orange-200 font-bold">
+                        0.38G
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-orange-300 font-semibold block truncate">
                       {PLANETS.mars.tagline}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400 block mt-0.5">
+                      PHOBOS / DEIMOS ORBIT
                     </span>
                   </div>
                 </div>
 
                 <span
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] transition-all ${
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs transition-all flex-shrink-0 ${
                     selectedPlanet === 'mars'
-                      ? 'bg-orange-500 border-orange-300 text-white shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                      : 'border-white/20 bg-transparent text-transparent'
+                      ? 'bg-gradient-to-b from-orange-400 to-orange-600 border-orange-200 text-white font-bold shadow-[0_0_14px_rgba(249,115,22,0.9)] scale-105'
+                      : 'border-white/25 bg-white/5 text-transparent group-hover:border-orange-400/60'
                   }`}
                 >
                   ✓
                 </span>
               </div>
 
-              <p className="text-xs text-slate-300 leading-snug">
-                Red regolith, atmospheric dust haze, and a 20s DSN comms delay.
+              <p className="text-xs text-slate-200 leading-snug relative z-10">
+                Red regolith canyons, atmospheric dust haze, and a 20s DSN comms delay.
               </p>
 
-              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-slate-300">
+              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap relative z-10">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-lg bg-slate-950/75 border border-white/[0.12] text-slate-200">
                   <RadarDishIcon size={11} className="text-orange-400" /> 20s Comms
                 </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-slate-300">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-lg bg-slate-950/75 border border-white/[0.12] text-emerald-300">
                   <ZapBoltIcon size={11} className="text-emerald-400" /> Standard Drain
                 </span>
               </div>
             </button>
 
-            {/* Moon Card */}
+            {/* MOON LIVE VIDEO-CANVAS CARD */}
             <button
               type="button"
+              onMouseEnter={() => setHoveredPlanet('moon')}
+              onMouseLeave={() => setHoveredPlanet(null)}
               onClick={() => {
                 sfx('toggle', { volume: 0.5 })
                 setSelectedPlanet('moon')
               }}
-              className={`group p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col gap-2 min-h-[44px] relative overflow-hidden ${
+              className={`group glossy-card p-3.5 rounded-2xl border text-left cursor-pointer flex flex-col gap-2 min-h-[44px] relative overflow-hidden ${
                 selectedPlanet === 'moon'
-                  ? 'bg-gradient-to-b from-cyan-950/55 to-slate-900/90 border-cyan-400/80 shadow-[0_0_24px_-4px_rgba(34,211,238,0.32)]'
-                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 hover:bg-slate-900/80 opacity-85 hover:opacity-100'
+                  ? 'bg-gradient-to-br from-cyan-950/85 via-slate-900/90 to-blue-950/75 border-cyan-400 shadow-[0_0_36px_-4px_rgba(34,211,238,0.55),inset_0_1.5px_0_rgba(255,255,255,0.4)]'
+                  : 'bg-slate-900/65 border-white/[0.14] hover:border-cyan-400/65 opacity-90 hover:opacity-100'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
-                      selectedPlanet === 'moon'
-                        ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
-                        : 'bg-white/5 border-white/10 text-slate-300'
-                    }`}
-                  >
-                    <MoonGlobeIcon size={21} />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-bold text-base text-white leading-tight">
-                      Moon
-                    </h3>
-                    <span className="text-[10px] font-mono text-cyan-300/90">
+              <div
+                className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-cyan-300/15 to-transparent animate-shimmer pointer-events-none"
+                aria-hidden="true"
+              />
+
+              <div className="flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <MiniPlanetVideoCanvas
+                    planet="moon"
+                    active={selectedPlanet === 'moon'}
+                    hovered={hoveredPlanet === 'moon'}
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
+                        Moon
+                      </h3>
+                      <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 font-bold">
+                        0.16G
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-cyan-300 font-semibold block truncate">
                       {PLANETS.moon.tagline}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400 block mt-0.5">
+                      ARTEMIS GATEWAY ORBIT
                     </span>
                   </div>
                 </div>
 
                 <span
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] transition-all ${
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs transition-all flex-shrink-0 ${
                     selectedPlanet === 'moon'
-                      ? 'bg-cyan-500 border-cyan-300 text-slate-950 font-bold shadow-[0_0_8px_rgba(34,211,238,0.6)]'
-                      : 'border-white/20 bg-transparent text-transparent'
+                      ? 'bg-gradient-to-b from-cyan-300 to-cyan-500 border-cyan-100 text-slate-950 font-bold shadow-[0_0_14px_rgba(34,211,238,0.9)] scale-105'
+                      : 'border-white/25 bg-white/5 text-transparent group-hover:border-cyan-400/60'
                   }`}
                 >
                   ✓
                 </span>
               </div>
 
-              <p className="text-xs text-slate-300 leading-snug">
+              <p className="text-xs text-slate-200 leading-snug relative z-10">
                 Grey lunar craters, swift 2s Earth link, +10% vacuum battery drain.
               </p>
 
-              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-slate-300">
+              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap relative z-10">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-lg bg-slate-950/75 border border-white/[0.12] text-cyan-200">
                   <RadarDishIcon size={11} className="text-cyan-400" /> 2s Comms
                 </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-amber-300">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-lg bg-slate-950/75 border border-white/[0.12] text-amber-300">
                   <ZapBoltIcon size={11} className="text-amber-400" /> +10% Drain
                 </span>
               </div>
@@ -328,10 +400,13 @@ export default function StartMenu() {
           </div>
         </div>
 
-        {/* Difficulty Selection */}
-        <div className="flex flex-col gap-2">
+        {/* ============================================================== */}
+        {/* 02 · GLOSSY INTERACTIVE DIFFICULTY CARDS                       */}
+        {/* ============================================================== */}
+        <div className="flex flex-col gap-2 relative z-10">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-[11px] font-mono font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
               02 · Mission Profile & Difficulty
             </span>
             <span className="text-[10px] font-mono text-slate-400">
@@ -339,21 +414,21 @@ export default function StartMenu() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {(['explorer', 'commander', 'mission_control'] as DifficultyId[]).map((diffKey) => {
               const diff = DIFFICULTIES[diffKey]
               const isSelected = selectedDifficulty === diffKey
 
               const accentStyles = {
                 explorer: isSelected
-                  ? 'bg-emerald-950/45 border-emerald-400/80 shadow-[0_0_20px_-4px_rgba(16,185,129,0.3)]'
-                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 opacity-85 hover:opacity-100',
+                  ? 'bg-gradient-to-b from-emerald-950/75 to-slate-900/90 border-emerald-400 shadow-[0_0_26px_-4px_rgba(16,185,129,0.45)]'
+                  : 'bg-slate-900/65 border-white/[0.12] hover:border-emerald-400/50 opacity-85 hover:opacity-100',
                 commander: isSelected
-                  ? 'bg-amber-950/45 border-amber-400/80 shadow-[0_0_20px_-4px_rgba(245,158,11,0.3)]'
-                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 opacity-85 hover:opacity-100',
+                  ? 'bg-gradient-to-b from-amber-950/75 to-slate-900/90 border-amber-400 shadow-[0_0_26px_-4px_rgba(245,158,11,0.45)]'
+                  : 'bg-slate-900/65 border-white/[0.12] hover:border-amber-400/50 opacity-85 hover:opacity-100',
                 mission_control: isSelected
-                  ? 'bg-purple-950/45 border-purple-400/80 shadow-[0_0_20px_-4px_rgba(168,85,247,0.3)]'
-                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 opacity-85 hover:opacity-100',
+                  ? 'bg-gradient-to-b from-purple-950/75 to-slate-900/90 border-purple-400 shadow-[0_0_26px_-4px_rgba(168,85,247,0.45)]'
+                  : 'bg-slate-900/65 border-white/[0.12] hover:border-purple-400/50 opacity-85 hover:opacity-100',
               }[diffKey]
 
               const dotColor = {
@@ -370,24 +445,34 @@ export default function StartMenu() {
                     sfx('click_soft', { volume: 0.55 })
                     setSelectedDifficulty(diffKey)
                   }}
-                  className={`p-3 rounded-2xl border text-left transition-all duration-150 cursor-pointer flex flex-col justify-between gap-2 min-h-[44px] ${accentStyles}`}
+                  className={`glossy-card p-3 rounded-2xl border text-left cursor-pointer flex flex-col justify-between gap-2 min-h-[44px] relative overflow-hidden ${accentStyles}`}
                 >
-                  <div>
+                  {isSelected && (
+                    <div
+                      className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/15 to-transparent animate-shimmer pointer-events-none"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <div className="relative z-10">
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-display font-bold text-xs sm:text-[13px] text-white flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+                        <span
+                          className={`w-2 h-2 rounded-full ${dotColor} ${
+                            isSelected ? 'animate-ping' : ''
+                          }`}
+                        />
                         {diff.name}
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
                       {diff.ageGroup}
                     </span>
-                    <p className="text-[11px] text-slate-300 leading-snug mt-1.5">
+                    <p className="text-[11px] text-slate-200 leading-snug mt-1.5">
                       {diff.description}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.06] text-[10px] font-mono text-slate-300">
+                  <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.1] text-[10px] font-mono text-slate-200 relative z-10">
                     <span className="inline-flex items-center gap-0.5">
                       <ZapBoltIcon size={10} className="text-amber-400" />
                       {diff.powerBudget}
@@ -404,12 +489,12 @@ export default function StartMenu() {
         </div>
 
         {/* Skip Tutorial Switch Row */}
-        <label className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-slate-950/45 border border-white/[0.07] hover:border-white/15 text-xs text-slate-300 cursor-pointer select-none min-h-[44px] transition-colors">
+        <label className="glossy-card flex items-center justify-between gap-3 px-3 py-2 rounded-2xl border border-white/[0.12] hover:border-white/25 text-xs text-slate-200 cursor-pointer select-none min-h-[40px] relative z-10">
           <div className="flex flex-col">
-            <span className="font-semibold text-slate-200 text-xs">
+            <span className="font-semibold text-white text-xs">
               Skip onboarding flight tutorial
             </span>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[10px] text-slate-400">
               Recommended if you have already completed Days 1–3 training
             </span>
           </div>
@@ -423,18 +508,31 @@ export default function StartMenu() {
               }}
               className="sr-only peer"
             />
-            <div className="w-10 h-6 bg-slate-800 border border-white/15 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500 peer-checked:border-orange-400" />
+            <div className="w-10 h-6 bg-slate-800 border border-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500 peer-checked:border-orange-300" />
           </div>
         </label>
 
-        {/* Sticky Launch Mission Button & Data Sources */}
-        <div className="sticky bottom-0 bg-slate-950/90 backdrop-blur-xl pt-3 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-white/[0.08] flex flex-col gap-2 mt-auto">
+        {/* Glossy Launch Mission Button & Data Sources */}
+        <div className="pt-1 flex flex-col gap-1.5 relative z-10">
           <button
             onClick={handleLaunch}
-            className="group relative overflow-hidden w-full min-h-[50px] py-3.5 px-6 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:via-amber-400 hover:to-orange-500 active:from-orange-600 active:to-amber-600 text-white font-display font-bold text-base md:text-lg tracking-wide rounded-2xl transition-all duration-200 cursor-pointer shadow-[0_10px_28px_-6px_rgba(249,115,22,0.55)] flex items-center justify-center gap-2.5 active:scale-[0.99]"
+            className={`group relative overflow-hidden w-full min-h-[48px] py-3 px-6 text-white font-display font-bold text-base tracking-wide rounded-2xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2.5 active:scale-[0.99] border ${
+              isMars
+                ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:via-amber-400 hover:to-orange-500 border-orange-300/70 shadow-[0_12px_36px_-6px_rgba(249,115,22,0.7),inset_0_1.5px_0_rgba(255,255,255,0.45)]'
+                : 'bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:via-sky-400 hover:to-blue-500 border-cyan-300/70 shadow-[0_12px_36px_-6px_rgba(34,211,238,0.65),inset_0_1.5px_0_rgba(255,255,255,0.45)]'
+            }`}
           >
-            <RocketIcon size={20} className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            <span>Launch Mission</span>
+            <div
+              className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/35 to-transparent animate-shimmer pointer-events-none"
+              aria-hidden="true"
+            />
+            <RocketIcon
+              size={20}
+              className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-110 relative z-10"
+            />
+            <span className="relative z-10">
+              Launch {selectedPlanet === 'mars' ? 'Mars' : 'Lunar'} Mission
+            </span>
           </button>
 
           <div className="flex items-center justify-center">
@@ -444,9 +542,9 @@ export default function StartMenu() {
                 sfx('open_soft', { volume: 0.5 })
                 setShowDataSourcesModal(true)
               }}
-              className="min-h-[40px] px-3.5 py-1 rounded-full text-xs text-sky-300 hover:text-white hover:bg-white/[0.05] font-medium cursor-pointer flex items-center gap-1.5 transition-colors"
+              className="min-h-[32px] px-3 py-0.5 rounded-full text-xs text-sky-300 hover:text-white hover:bg-white/[0.08] font-medium cursor-pointer flex items-center gap-1.5 transition-all"
             >
-              <DatabaseScienceIcon size={14} className="text-sky-400" />
+              <DatabaseScienceIcon size={13} className="text-sky-400 animate-pulse" />
               <span>Data Sources & NASA Provenance</span>
             </button>
           </div>

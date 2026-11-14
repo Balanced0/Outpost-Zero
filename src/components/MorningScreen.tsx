@@ -514,14 +514,25 @@ export default function MorningScreen() {
           <button
             onClick={startDrivingDay}
             disabled={isDay1Locked}
-            className={`w-full min-h-[50px] py-3.5 px-4 font-display font-bold rounded-2xl transition-all duration-200 text-center text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.99] ${
+            className={`group relative overflow-hidden w-full min-h-[50px] py-3.5 px-4 font-display font-bold rounded-2xl transition-all duration-200 text-center text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.99] ${
               isDay1Locked
                 ? 'bg-slate-800/90 text-slate-400 border border-white/10 cursor-not-allowed'
-                : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:via-amber-400 hover:to-orange-500 text-white cursor-pointer shadow-[0_10px_28px_-6px_rgba(249,115,22,0.55)]'
+                : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:via-amber-400 hover:to-orange-500 text-white border border-orange-300/50 cursor-pointer shadow-[0_10px_28px_-6px_rgba(249,115,22,0.55),inset_0_1px_0_rgba(255,255,255,0.35)]'
             }`}
           >
-            <RocketIcon size={19} />
-            <span>{isDay1Locked ? 'Move a slider to unlock Start driving' : 'Start driving'}</span>
+            {!isDay1Locked && (
+              <div
+                className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
+            <RocketIcon
+              size={19}
+              className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 relative z-10"
+            />
+            <span className="relative z-10">
+              {isDay1Locked ? 'Move a slider to unlock Start driving' : 'Start driving'}
+            </span>
           </button>
 
           {isDay1Locked && (
