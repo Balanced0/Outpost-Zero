@@ -47,7 +47,7 @@ export default function SoundToggle() {
         </div>
       )}
 
-      {/* Main sound toggle button (min 44px touch target) */}
+      {/* Main sound toggle button (round glossy, min 44px touch target) */}
       <button
         type="button"
         onClick={toggleMute}
@@ -57,22 +57,22 @@ export default function SoundToggle() {
         }}
         title={muted ? 'Unmute audio (tap ⚙ for options)' : 'Mute audio (tap ⚙ for options)'}
         aria-label={muted ? 'Unmute audio' : 'Mute audio'}
-        className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-xl cursor-pointer transition-all shadow-lg border active:scale-95 ${
+        className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-lg cursor-pointer transition-all shadow-lg shadow-black/60 border active:scale-95 ${
           muted
-            ? 'bg-slate-900/90 border-red-500/60 text-red-400 hover:bg-slate-800'
-            : 'bg-black/75 border-white/25 text-white hover:bg-black/90 hover:border-sky-400/60'
+            ? 'bg-gradient-to-b from-rose-950/90 via-slate-900/95 to-black/95 border-rose-500/80 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.35)] hover:border-rose-400'
+            : 'bg-gradient-to-b from-slate-800/90 via-slate-900/95 to-black/95 border-slate-600/70 text-slate-100 hover:border-slate-400 hover:text-white'
         }`}
       >
         {muted ? '🔇' : '🔊'}
       </button>
 
-      {/* Options toggle button (min 44px touch target) */}
+      {/* Options toggle button (round glossy gear, min 44px touch target) */}
       <button
         type="button"
         onClick={() => setShowMenu((v) => !v)}
         title="Audio options"
         aria-label="Audio options"
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-900/80 border border-slate-700/80 hover:border-slate-500 text-xs text-slate-300 flex items-center justify-center cursor-pointer transition-colors active:scale-95"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-slate-800/90 via-slate-900/95 to-black/95 border border-slate-600/70 hover:border-slate-400 text-sm text-slate-300 hover:text-white flex items-center justify-center cursor-pointer transition-all shadow-lg shadow-black/60 active:scale-95"
       >
         {showMenu ? '✕' : '⚙️'}
       </button>
