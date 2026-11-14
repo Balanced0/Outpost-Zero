@@ -73,42 +73,69 @@ canvas {
   background: rgba(148, 163, 184, 0.45);
 }
 
-/* ── Tactical Aerospace Surface & Panel Utilities ── */
+/* ── Tactical Aerospace Glossy Surface & Panel Utilities ── */
 @layer components {
   .mission-panel {
-    background: linear-gradient(180deg, rgba(15, 22, 36, 0.94) 0%, rgba(8, 12, 21, 0.97) 100%);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.01) 38%, rgba(15, 23, 42, 0) 60%),
+      linear-gradient(180deg, rgba(16, 24, 42, 0.88) 0%, rgba(7, 11, 22, 0.94) 100%);
+    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow:
-      0 24px 60px -12px rgba(0, 0, 0, 0.85),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-      0 1px 0 0 rgba(255, 255, 255, 0.14) inset;
+      0 28px 70px -12px rgba(0, 0, 0, 0.88),
+      0 0 40px -10px rgba(56, 189, 248, 0.08),
+      0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+      0 1.5px 0 0 rgba(255, 255, 255, 0.28) inset;
   }
 
   .hud-glass {
-    background: linear-gradient(180deg, rgba(13, 19, 32, 0.88) 0%, rgba(7, 10, 18, 0.92) 100%);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 45%, transparent 100%),
+      linear-gradient(180deg, rgba(13, 20, 35, 0.86) 0%, rgba(6, 10, 19, 0.92) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow:
-      0 10px 30px -6px rgba(0, 0, 0, 0.65),
-      0 1px 0 0 rgba(255, 255, 255, 0.1) inset;
+      0 12px 32px -6px rgba(0, 0, 0, 0.72),
+      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.22) inset;
+  }
+
+  .glossy-card {
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.015) 42%, rgba(0, 0, 0, 0.2) 100%);
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    box-shadow:
+      0 10px 28px -8px rgba(0, 0, 0, 0.65),
+      0 1px 0 0 rgba(255, 255, 255, 0.22) inset;
+    transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glossy-card:hover {
+    transform: translateY(-2px) scale(1.008);
+    box-shadow:
+      0 16px 36px -8px rgba(0, 0, 0, 0.78),
+      0 1px 0 0 rgba(255, 255, 255, 0.35) inset;
   }
 
   .hud-card-interactive {
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .hud-card-interactive:hover {
-    border-color: rgba(255, 255, 255, 0.2);
-    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.26);
+    transform: translateY(-1.5px);
+    box-shadow:
+      0 14px 34px -6px rgba(0, 0, 0, 0.8),
+      0 1px 0 0 rgba(255, 255, 255, 0.28) inset;
   }
 
   .tech-grid-bg {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: 28px 28px;
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }
 
@@ -167,14 +194,35 @@ input[type='range'].tactical-slider::-moz-range-thumb {
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
 }
 
-/* ── Reduced Motion Accessibility ── */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  ::before,
-  ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+/* ── Ambient Keyframe Helpers for Motion Graphics ── */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.75;
   }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes wave-bar {
+  0%, 100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.animate-wave-bar {
+  animation: wave-bar 1.2s ease-in-out infinite;
 }

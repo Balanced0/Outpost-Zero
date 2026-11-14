@@ -3,6 +3,7 @@ import { useGameStore, BASE_X, BASE_Y } from '../store/gameStore'
 import { BASE_SAFE_DISTANCE, SUNSET_WARN_SEC } from '../config/gameConfig'
 import { DIFFICULTIES } from '../config/difficulty'
 import WhyButton from './WhyButton'
+import { StormAlertCard } from './StormOverlay'
 import { sfx } from '../utils/sound'
 import {
   BatteryBoltIcon,
@@ -159,8 +160,6 @@ export default function HUD() {
       : isSunsetWarning || dayPhase === 'ended'
       ? 'sunset'
       : 'midday'
-
-  const hasActiveStormBanner = stormState === 'warning' || stormState === 'active'
 
   return (
     <>
@@ -376,24 +375,23 @@ export default function HUD() {
           </div>
         )}
 
-        {/* F) Sunset Alert Banner for Mobile */}
-        {isSunsetWarning && (
-          <div
-            className="fixed inset-x-0 z-20 pointer-events-none select-none flex justify-center px-4"
-            style={{
-              top: hasActiveStormBanner
-                ? 'max(11.8rem, calc(env(safe-area-inset-top) + 11.4rem))'
-                : 'max(8.2rem, calc(env(safe-area-inset-top) + 7.8rem))',
-            }}
-          >
-            <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-md">
+        {/* F) Centered Storm & Sunset Alert Stack for Mobile */}
+        <div
+          className="fixed inset-x-0 z-30 pointer-events-none select-none flex flex-col items-center gap-2 px-3"
+          style={{
+            top: 'max(5.4rem, calc(env(safe-area-inset-top) + 5.1rem))',
+          }}
+        >
+          <StormAlertCard />
+          {isSunsetWarning && (
+            <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-md pointer-events-auto">
               <AlertTriangleIcon size={14} />
               <span className="truncate">
                 {planet === 'moon' ? 'Night soon! Head home.' : 'Sunset soon! Head home.'}
               </span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ============================================================== */}
@@ -584,9 +582,9 @@ export default function HUD() {
           )}
         </div>
 
-        {/* Top-center: Day Timer, Sun bar, & Phase Tabs */}
-        <div className="fixed inset-x-0 top-3.5 lg:top-4 flex flex-col items-center gap-2 pointer-events-none">
-          <div className="hud-glass rounded-2xl px-4 lg:px-5 py-2.5 flex flex-col items-center w-[272px] lg:w-80 gap-2 pointer-events-auto">
+        {/* Top-center: Day Timer, Sun bar, Phase Tabs & Storm Alert Card directly underneath */}
+        <div className="fixed inset-x-0 top-3.5 lg:top-4 flex flex-col items-center gap-2 pointer-events-none z-30">
+          <div className="hud-glass hud-card-interactive rounded-2xl px-4 lg:px-5 py-2.5 flex flex-col items-center w-[272px] lg:w-80 gap-2 pointer-events-auto">
             {/* Header: Planet, Difficulty, Commander */}
             <div className="flex items-center justify-between w-full text-[11px] font-medium text-slate-300 border-b border-white/[0.08] pb-1.5">
               <span className="inline-flex items-center gap-1.5 font-semibold text-white">
@@ -658,13 +656,12 @@ export default function HUD() {
             </div>
           </div>
 
-          {/* Sunset Alert Banner (shifts below StormOverlay if a storm is also active) */}
+          {/* Storm Warning / Active Storm Card — Stacked directly below the black Day X of 20 card */}
+          <StormAlertCard />
+
+          {/* Sunset Alert Banner */}
           {isSunsetWarning && (
-            <div
-              className={`animate-bounce bg-rose-600/95 text-white text-xs font-bold px-4 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center gap-1.5 backdrop-blur-md pointer-events-auto ${
-                hasActiveStormBanner ? 'mt-28' : ''
-              }`}
-            >
+            <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-4 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center gap-1.5 backdrop-blur-md pointer-events-auto">
               <AlertTriangleIcon size={14} />
               <span>{planet === 'moon' ? 'Night soon! Head home.' : 'Sunset soon! Head home.'}</span>
             </div>
