@@ -175,7 +175,6 @@ AI coding assistants (Antigravity, Claude, Chatgpt) were used to assist with cod
 
 **The Primeagens**
 - MD. Alvi Chowdhury
-- Abdullah Shahad
 - Ishfak Mahbub Samin
 - Saad Ahmed
 - Syed Owin Efaz
