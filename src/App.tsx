@@ -12,6 +12,7 @@ import DebriefScreen from './components/DebriefScreen'
 import DataSourcesModal from './components/DataSourcesModal'
 import GlossaryCard from './components/GlossaryCard'
 import SoundToggle from './components/SoundToggle'
+import MoonEarth from './components/MoonEarth'
 import { useGameStore } from './store/gameStore'
 import { useAutoGlossaryCards } from './hooks/useAutoGlossaryCards'
 import { useGameSounds } from './hooks/useGameSounds'
@@ -22,7 +23,7 @@ function AppInner() {
   useGameSounds()
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
+    <div className="relative w-[100vw] h-[100dvh] overflow-hidden bg-black select-none m-0 p-0">
       {/* Phaser Canvas ONLY mounted and started after "Launch mission" is pressed */}
       {isGameStarted && <GameCanvas />}
       <SunsetOverlay />
@@ -41,6 +42,8 @@ function AppInner() {
       <GlossaryCard />
       {/* Mute toggle — always visible */}
       <SoundToggle />
+      {/* Earth globe — Moon map only */}
+      <MoonEarth />
     </div>
   )
 }

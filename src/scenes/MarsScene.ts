@@ -14,6 +14,7 @@ import { DiscoverySpot } from '../data/discoverySpots'
 
 const MAP_W = 4000
 const MAP_H = 4000
+const GROUND_PAD = 2000
 const TILE_SIZE = 64
 const MAP_SEED = 42
 
@@ -98,6 +99,10 @@ export default class MarsScene extends Phaser.Scene {
       0.08,
       0.08,
     )
+    this.updateCameraZoom()
+
+    // Listen to ScaleManager resize events
+    this.scale.on('resize', this.handleResize, this)
 
     // ---- 10. INPUT ----
     this.cursors = this.input.keyboard!.createCursorKeys()
@@ -146,6 +151,7 @@ export default class MarsScene extends Phaser.Scene {
     window.addEventListener('discovery-collected', handleCollected)
 
     this.events.once('shutdown', () => {
+      this.scale.off('resize', this.handleResize, this)
       window.removeEventListener('reset-rover-to-base', handleReset)
       window.removeEventListener('planet-changed', handlePlanetChanged)
       window.removeEventListener('discovery-collected', handleCollected)
@@ -154,8 +160,41 @@ export default class MarsScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------ helpers
 
+  /**
+   * Sets camera zoom based on the current viewport dimensions so world visibility
+   * remains consistent across small screens, laptops, and ultra-wide desktop monitors.
+   * Targets ~1100 world pixels on the shorter screen side, clamped between 0.6 and 1.4.
+   */
+  private updateCameraZoom() {
+    const width = this.scale.width
+    const height = this.scale.height
+    if (!width || !height) return
+
+    const shorterSide = Math.min(width, height)
+    const targetWorldSpan = 1100
+    const calculatedZoom = shorterSide / targetWorldSpan
+    const clampedZoom = Math.max(0.6, Math.min(1.4, calculatedZoom))
+
+    this.cameras.main.setZoom(clampedZoom)
+  }
+
+  private handleResize(gameSize: Phaser.Structs.Size) {
+    const width = gameSize.width
+    const height = gameSize.height
+    this.cameras.main.setSize(width, height)
+    this.updateCameraZoom()
+  }
+
   private buildGround(checkFailed: (k: string) => boolean) {
-    // Find which plain-ground tile keys actually loaded
+    const isMoon = useGameStore.getState().planet === 'moon'
+
+    // Moon: generate a pure code-drawn gray ground texture — no Kenney tiles at all
+    if (isMoon) {
+      this.buildMoonGround()
+      return
+    }
+
+    // Mars: use Kenney plain terracotta tiles
     const availableTiles = MARS_GROUND_TILES.filter((k) => !checkFailed(k))
 
     // If no plain tiles loaded, fall back to solid color rectangle with variation
@@ -164,9 +203,15 @@ export default class MarsScene extends Phaser.Scene {
       return
     }
 
-    // High-performance hardware TileSprite (1 draw call, 0ms setup, zero frame buffer texture)
+    // High-performance hardware TileSprite with generous border padding so no black borders ever show
     const key = availableTiles[0]
-    this.groundTileSprite = this.add.tileSprite(MAP_W / 2, MAP_H / 2, MAP_W, MAP_H, key)
+    this.groundTileSprite = this.add.tileSprite(
+      MAP_W / 2,
+      MAP_H / 2,
+      MAP_W + GROUND_PAD * 2,
+      MAP_H + GROUND_PAD * 2,
+      key
+    )
     this.groundTileSprite.setDepth(0)
 
     // Apply per-tile tint variation as a semi-transparent overlay drawn with graphics
@@ -174,6 +219,76 @@ export default class MarsScene extends Phaser.Scene {
     this.applyGroundVariationOverlay()
 
     this.applyPlanetVisuals()
+  }
+
+  /**
+   * Builds the Moon ground entirely in code — a 256×256 canvas texture tiled
+   * across the full map. No Kenney tiles are used. Produces neutral gray (#8a8a8a)
+   * with seeded lighter/darker patches (~8%) and fine speckle noise.
+   */
+  private buildMoonGround() {
+    const TEX_KEY = 'moon_ground_tile'
+    const TEX_SIZE = 256
+
+    if (!this.textures.exists(TEX_KEY)) {
+      // Build via an offscreen HTML canvas so we can use fillRect / fillStyle freely
+      const canvas = document.createElement('canvas')
+      canvas.width = TEX_SIZE
+      canvas.height = TEX_SIZE
+      const ctx = canvas.getContext('2d')!
+
+      // ---- Base fill ----
+      ctx.fillStyle = '#8a8a8a'
+      ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE)
+
+      // ---- Seeded variation patches (lighter and darker, ~8% swing) ----
+      // Simple mulberry-style LCG seeded to a fixed value for determinism
+      let seed = 0xdeadbeef
+      const rng = () => {
+        seed = (Math.imul(seed, 0x41c64e6d) + 0x6073) >>> 0
+        return seed / 0xffffffff
+      }
+
+      const patchCount = 180
+      for (let i = 0; i < patchCount; i++) {
+        const x = rng() * TEX_SIZE
+        const y = rng() * TEX_SIZE
+        const rx = 8 + rng() * 36
+        const ry = 6 + rng() * 24
+        const lighter = rng() > 0.5
+        // ~8% lighter (#9e9e9e) or darker (#757575)
+        ctx.fillStyle = lighter ? 'rgba(158,158,158,0.18)' : 'rgba(80,80,80,0.18)'
+        ctx.beginPath()
+        ctx.ellipse(x, y, rx, ry, rng() * Math.PI, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // ---- Fine speckle noise ----
+      const speckleCount = 500
+      for (let i = 0; i < speckleCount; i++) {
+        const sx = rng() * TEX_SIZE
+        const sy = rng() * TEX_SIZE
+        const r = 0.5 + rng() * 1.5
+        const bright = rng() > 0.5
+        ctx.fillStyle = bright ? 'rgba(176,176,176,0.55)' : 'rgba(100,100,100,0.55)'
+        ctx.beginPath()
+        ctx.arc(sx, sy, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Add canvas texture to Phaser's texture manager
+      this.textures.addCanvas(TEX_KEY, canvas)
+    }
+
+    this.groundTileSprite = this.add.tileSprite(
+      MAP_W / 2,
+      MAP_H / 2,
+      MAP_W + GROUND_PAD * 2,
+      MAP_H + GROUND_PAD * 2,
+      TEX_KEY
+    )
+    this.groundTileSprite.setDepth(0)
+    // No tint — the texture is already the correct color
   }
 
   /**
@@ -208,7 +323,7 @@ export default class MarsScene extends Phaser.Scene {
     const isMoon = useGameStore.getState().planet === 'moon'
     const baseColor = isMoon ? 0x6b7280 : 0xb8562a
     gfx.fillStyle(baseColor, 1)
-    gfx.fillRect(0, 0, MAP_W, MAP_H)
+    gfx.fillRect(-GROUND_PAD, -GROUND_PAD, MAP_W + GROUND_PAD * 2, MAP_H + GROUND_PAD * 2)
 
     // Scatter variation patches
     const varRng = new Phaser.Math.RandomDataGenerator(['ground_var_42'])
@@ -231,12 +346,9 @@ export default class MarsScene extends Phaser.Scene {
     const planetConfig = PLANETS[planetId]
 
     if (this.groundTileSprite) {
-      if (planetId === 'moon') {
-        // Gray multiply tint for Moon
-        this.groundTileSprite.setTint(planetConfig.groundTint)
-      } else {
-        this.groundTileSprite.clearTint()
-      }
+      // Moon uses its own code-generated gray texture — no tint needed or wanted.
+      // Mars tiles already have the right color — just clear any leftover tint.
+      this.groundTileSprite.clearTint()
     }
 
     // Tint rocks for Moon (gray) vs Mars (warm orange)
@@ -269,33 +381,84 @@ export default class MarsScene extends Phaser.Scene {
     // Use a fresh seeded RNG for craters that is independent of rock/tile RNG
     const craterRng = new Phaser.Math.RandomDataGenerator(['craters_42'])
 
-    const craterCount = 50
-    for (let i = 0; i < craterCount; i++) {
-      const cx = craterRng.integerInRange(100, MAP_W - 100)
-      const cy = craterRng.integerInRange(100, MAP_H - 100)
-      const rx = craterRng.integerInRange(28, 95)
-      const ry = Math.round(rx * craterRng.realInRange(0.55, 0.85)) // slightly elliptical
+    if (isMoon) {
+      // --- Moon: more craters, bigger, some clustered ---
+      const craterCount = 120
+      for (let i = 0; i < craterCount; i++) {
+        const cx = craterRng.integerInRange(100, MAP_W - 100)
+        const cy = craterRng.integerInRange(100, MAP_H - 100)
+        const rx = craterRng.integerInRange(20, 140)
+        const ry = Math.round(rx * craterRng.realInRange(0.55, 0.85))
 
-      // Skip if too close to base
-      if (Phaser.Math.Distance.Between(cx, cy, BASE_X, BASE_Y) < 200) continue
+        if (Phaser.Math.Distance.Between(cx, cy, BASE_X, BASE_Y) < 220) continue
 
-      if (isMoon) {
-        // Moon craters: lighter, more visible (gray palette)
+        this.drawMoonCrater(cx, cy, rx, ry)
+
+        // For large craters, cluster 2-4 smaller ones nearby
+        if (rx > 70) {
+          const clusterCount = craterRng.integerInRange(2, 4)
+          for (let j = 0; j < clusterCount; j++) {
+            const angle = craterRng.realInRange(0, Math.PI * 2)
+            const dist = craterRng.realInRange(rx * 0.8, rx * 1.6)
+            const mx = cx + Math.cos(angle) * dist
+            const my = cy + Math.sin(angle) * dist
+            const mr = craterRng.integerInRange(8, 28)
+            const mry = Math.round(mr * craterRng.realInRange(0.6, 0.85))
+            if (
+              mx > 50 && mx < MAP_W - 50 &&
+              my > 50 && my < MAP_H - 50 &&
+              Phaser.Math.Distance.Between(mx, my, BASE_X, BASE_Y) > 150
+            ) {
+              this.drawMoonCrater(mx, my, mr, mry)
+            }
+          }
+        }
+      }
+    } else {
+      // --- Mars: 50 subtle craters ---
+      const craterCount = 50
+      for (let i = 0; i < craterCount; i++) {
+        const cx = craterRng.integerInRange(100, MAP_W - 100)
+        const cy = craterRng.integerInRange(100, MAP_H - 100)
+        const rx = craterRng.integerInRange(28, 95)
+        const ry = Math.round(rx * craterRng.realInRange(0.55, 0.85))
+
+        if (Phaser.Math.Distance.Between(cx, cy, BASE_X, BASE_Y) < 200) continue
+
         // Subtle darker floor
-        this.cratersGraphics.fillStyle(0x374151, 0.22)
-        this.cratersGraphics.fillEllipse(cx, cy, rx * 2, ry * 2)
-        // Soft lighter rim
-        this.cratersGraphics.lineStyle(3, 0x9ca3af, 0.3)
-        this.cratersGraphics.strokeEllipse(cx, cy, (rx + 5) * 2, (ry + 4) * 2)
-      } else {
-        // Mars craters: subtle darker floor, faint lighter rim
         this.cratersGraphics.fillStyle(0x6b2810, 0.22)
         this.cratersGraphics.fillEllipse(cx, cy, rx * 2, ry * 2)
-        // Lighter rim highlight on the top-left edge only
+        // Lighter rim highlight
         this.cratersGraphics.lineStyle(3, 0xd4714a, 0.25)
         this.cratersGraphics.strokeEllipse(cx, cy, (rx + 5) * 2, (ry + 4) * 2)
       }
     }
+  }
+
+  /**
+   * Draws a single Moon crater: darker floor + offset inner shadow (sun-side) + lighter rim.
+   * Kept at low contrast so discovery spots still pop.
+   */
+  private drawMoonCrater(cx: number, cy: number, rx: number, ry: number) {
+    // Darker floor
+    this.cratersGraphics.fillStyle(0x696969, 0.30)
+    this.cratersGraphics.fillEllipse(cx, cy, rx * 2, ry * 2)
+
+    // Soft inner shadow on the sun side (top-left offset) — lighter patch
+    const shadowOffX = -rx * 0.25
+    const shadowOffY = -ry * 0.25
+    this.cratersGraphics.fillStyle(0xb0b0b0, 0.12)
+    this.cratersGraphics.fillEllipse(
+      cx + shadowOffX,
+      cy + shadowOffY,
+      rx * 1.0,
+      ry * 1.0
+    )
+
+    // Lighter rim
+    const rimW = Math.max(2, Math.min(4, rx / 25))
+    this.cratersGraphics.lineStyle(rimW, 0xc8c8c8, 0.35)
+    this.cratersGraphics.strokeEllipse(cx, cy, (rx + 4) * 2, (ry + 3) * 2)
   }
 
   private scatterRocks(checkFailed: (k: string) => boolean) {
@@ -330,7 +493,7 @@ export default class MarsScene extends Phaser.Scene {
         img.setDepth(2)
 
         if (isMoon) {
-          img.setTint(0x94a3b8) // gray tint for Moon
+          img.setTint(0x9ca3af) // neutral gray tint for Moon (no blue-gray undertone)
         } else {
           img.setTint(0xd4855a) // warm orange-brown tint for Mars
         }
@@ -503,8 +666,10 @@ export default class MarsScene extends Phaser.Scene {
   }
 
   private createRover(checkFailed: (k: string) => boolean) {
-    // Shadow ellipse drawn below rover
-    this.roverShadow = this.add.ellipse(BASE_X, BASE_Y + 10, 72, 24, 0x000000, 0.35)
+    // Shadow ellipse drawn below rover — sharper on Moon (no atmosphere to soften)
+    const isMoon = useGameStore.getState().planet === 'moon'
+    const shadowAlpha = isMoon ? 0.70 : 0.35
+    this.roverShadow = this.add.ellipse(BASE_X, BASE_Y + 10, 72, 24, 0x000000, shadowAlpha)
     this.roverShadow.setDepth(11)
 
     if (!checkFailed('rover')) {

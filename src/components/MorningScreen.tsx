@@ -196,8 +196,16 @@ export default function MorningScreen() {
   ]
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 pointer-events-auto select-none animate-fade-in overflow-y-auto">
-      <div className="bg-slate-900/95 border-2 border-orange-500/60 rounded-3xl max-w-lg w-full p-5 md:p-6 text-white shadow-2xl flex flex-col gap-3.5 my-auto">
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none animate-fade-in overflow-y-auto bg-black/80 backdrop-blur-md"
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
+    >
+      <div className="bg-slate-900/95 border-2 border-orange-500/60 rounded-3xl max-w-lg w-full p-4 sm:p-6 text-white shadow-2xl flex flex-col gap-3.5 my-auto max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <div>
@@ -209,19 +217,19 @@ export default function MorningScreen() {
                 {DIFFICULTIES[difficulty].name}
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold text-white mt-0.5">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">
               Day {day}: Plan your power
             </h1>
           </div>
 
           <div
-            className={`px-3 py-1.5 rounded-full border text-xs font-bold font-mono transition-colors ${
+            className={`px-3 py-1.5 rounded-full border text-xs font-bold font-mono transition-colors flex-shrink-0 ${
               powerLeft > 0
                 ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse'
                 : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
             }`}
           >
-            {powerLeft > 0 ? `⚡ Power left: ${powerLeft}` : `⚡ ${powerBudget}/${powerBudget}`}
+            {powerLeft > 0 ? `⚡ Left: ${powerLeft}` : `⚡ ${powerBudget}/${powerBudget}`}
           </div>
         </div>
 
@@ -346,18 +354,19 @@ export default function MorningScreen() {
                   {s.whyTerm && <WhyButton term={s.whyTerm} />}
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700 rounded-xl px-2 py-0.5">
+                <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-xl px-1 py-0.5">
                   <button
                     onClick={() => {
                       sfx('tick_soft', { volume: 0.5 })
                       setPowerAlloc(s.key, s.value - 1)
                     }}
                     disabled={s.value <= 0}
-                    className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer font-mono font-bold"
+                    aria-label={`Decrease ${s.label}`}
+                    className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white disabled:opacity-25 cursor-pointer font-mono font-bold text-lg active:scale-95"
                   >
                     -
                   </button>
-                  <span className="font-mono font-bold text-sm text-white w-8 text-center">
+                  <span className="font-mono font-bold text-sm text-white w-7 text-center">
                     {s.value}
                   </span>
                   <button
@@ -366,7 +375,8 @@ export default function MorningScreen() {
                       setPowerAlloc(s.key, s.value + 1)
                     }}
                     disabled={s.value >= powerBudget}
-                    className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer font-mono font-bold"
+                    aria-label={`Increase ${s.label}`}
+                    className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white disabled:opacity-25 cursor-pointer font-mono font-bold text-lg active:scale-95"
                   >
                     +
                   </button>
@@ -382,7 +392,7 @@ export default function MorningScreen() {
                   sfx('tick_soft', { volume: 0.35 })
                   setPowerAlloc(s.key, Number(e.target.value))
                 }}
-                className={`w-full h-2.5 bg-slate-700 rounded-lg cursor-pointer ${s.trackColor}`}
+                className={`w-full h-3 bg-slate-700 rounded-lg cursor-pointer ${s.trackColor}`}
               />
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
@@ -395,12 +405,12 @@ export default function MorningScreen() {
           ))}
         </div>
 
-        {/* Start Driving Button (Locked on Day 1 until slider moved) */}
-        <div className="flex flex-col items-center gap-1">
+        {/* Sticky Start Driving Button & Hints Reset */}
+        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2.5 pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 border-t border-slate-800/80 flex flex-col items-center gap-1.5 mt-auto">
           <button
             onClick={startDrivingDay}
             disabled={isDay1Locked}
-            className={`w-full py-3 px-4 font-extrabold rounded-2xl transition-all shadow-xl text-center text-base tracking-wide flex items-center justify-center gap-2 ${
+            className={`w-full min-h-[48px] py-3.5 px-4 font-extrabold rounded-2xl transition-all shadow-xl text-center text-base tracking-wide flex items-center justify-center gap-2 active:scale-[0.99] ${
               isDay1Locked
                 ? 'bg-slate-700 text-slate-400 border border-slate-600 cursor-not-allowed opacity-75'
                 : 'bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white cursor-pointer shadow-orange-950/50'
@@ -410,7 +420,7 @@ export default function MorningScreen() {
             <span>{isDay1Locked ? 'Move a slider to unlock Start driving' : 'Start driving'}</span>
           </button>
           {isDay1Locked && (
-            <span className="text-[11px] text-cyan-300 font-medium animate-pulse">
+            <span className="text-[11px] text-cyan-300 font-medium animate-pulse text-center">
               👈 Tip: Tap + or - on any slider to test balancing your power!
             </span>
           )}
@@ -418,7 +428,7 @@ export default function MorningScreen() {
           <button
             type="button"
             onClick={() => { resetSeenHints(); alert('Hints reset! All "?" cards will show again this mission.') }}
-            className="text-[11px] text-slate-500 hover:text-slate-300 underline underline-offset-2 cursor-pointer transition-colors mt-1"
+            className="min-h-[44px] px-3 text-[11px] text-slate-400 hover:text-slate-200 underline underline-offset-2 cursor-pointer transition-colors flex items-center justify-center"
           >
             Show hints again
           </button>

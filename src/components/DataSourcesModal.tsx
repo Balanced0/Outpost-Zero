@@ -52,19 +52,27 @@ export default function DataSourcesModal() {
       : 'Last 60 days of real solar observations'
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pointer-events-auto select-none overflow-y-auto animate-fade-in">
-      <div className="bg-slate-900 border-2 border-sky-500/70 rounded-3xl max-w-2xl w-full p-6 md:p-8 text-white shadow-2xl flex flex-col gap-5 my-auto max-h-[90vh] overflow-y-auto">
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto animate-fade-in bg-black/85 backdrop-blur-md"
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
+    >
+      <div className="bg-slate-900 border-2 border-sky-500/70 rounded-3xl max-w-2xl w-full p-4 sm:p-7 text-white shadow-2xl flex flex-col gap-4 my-auto max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400 flex items-center justify-center text-xl">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400 flex items-center justify-center text-xl flex-shrink-0">
               🔬
             </div>
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400 block">
                 NASA Space Apps Challenge
               </span>
-              <h2 className="text-xl md:text-2xl font-black text-white">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-white">
                 Data Sources & Attribution
               </h2>
             </div>
@@ -73,8 +81,9 @@ export default function DataSourcesModal() {
           <button
             type="button"
             onClick={() => setShowDataSourcesModal(false)}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-base cursor-pointer transition-colors active:scale-95"
             title="Close (ESC)"
+            aria-label="Close Data Sources"
           >
             ✕
           </button>
@@ -265,14 +274,16 @@ export default function DataSourcesModal() {
           </div>
         </div>
 
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={() => setShowDataSourcesModal(false)}
-          className="w-full py-3 px-6 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-2xl transition-colors cursor-pointer text-sm shadow-lg shadow-sky-950/50 mt-1"
-        >
-          Close Data Sources
-        </button>
+        {/* Close Button (Sticky Footer) */}
+        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2.5 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-slate-800/80 mt-auto">
+          <button
+            type="button"
+            onClick={() => setShowDataSourcesModal(false)}
+            className="w-full min-h-[48px] py-3.5 px-6 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-2xl transition-colors cursor-pointer text-sm shadow-lg shadow-sky-950/50 flex items-center justify-center active:scale-[0.99]"
+          >
+            Close Data Sources
+          </button>
+        </div>
       </div>
     </div>
   )

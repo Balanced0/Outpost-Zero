@@ -65,8 +65,16 @@ export default function DebriefScreen() {
   const isMaxDifficulty = difficulty === 'mission_control'
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 pointer-events-auto select-none overflow-y-auto">
-      <div className="bg-slate-900 border-2 border-orange-500/70 rounded-3xl max-w-2xl w-full p-5 md:p-7 text-white shadow-2xl flex flex-col gap-4 my-auto">
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto bg-black/90 backdrop-blur-md"
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
+    >
+      <div className="bg-slate-900 border-2 border-orange-500/70 rounded-3xl max-w-2xl w-full p-4 sm:p-7 text-white shadow-2xl flex flex-col gap-4 my-auto max-h-[92dvh] overflow-y-auto">
         {/* Header: Stars or Mission Paused */}
         <div className="text-center flex flex-col items-center border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
@@ -300,8 +308,8 @@ export default function DebriefScreen() {
             : 'This mission used a simulated NASA-calibrated solar activity profile.'}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-2 pt-1">
+        {/* Action Buttons (Sticky Footer) */}
+        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2.5 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-slate-800/80 flex flex-col gap-2 mt-auto">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               type="button"
@@ -309,7 +317,7 @@ export default function DebriefScreen() {
                 sfx('confirm', { volume: 0.6 })
                 playAgain()
               }}
-              className="py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs shadow-md"
+              className="min-h-[44px] py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm shadow-md flex items-center justify-center active:scale-[0.99]"
             >
               Play again
             </button>
@@ -321,10 +329,10 @@ export default function DebriefScreen() {
                 tryHarderMode()
               }}
               disabled={isMaxDifficulty}
-              className={`py-3 px-4 font-bold rounded-xl transition-colors text-xs shadow-md ${
+              className={`min-h-[44px] py-3 px-4 font-bold rounded-xl transition-colors text-xs sm:text-sm shadow-md flex items-center justify-center ${
                 isMaxDifficulty
                   ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                  : 'bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white cursor-pointer'
+                  : 'bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white cursor-pointer active:scale-[0.99]'
               }`}
             >
               {isMaxDifficulty ? 'Hardest mode reached' : 'Try a harder mode'}
@@ -336,7 +344,7 @@ export default function DebriefScreen() {
                 sfx('confirm', { volume: 0.6 })
                 switchPlanet()
               }}
-              className="py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs border border-slate-700 shadow-md"
+              className="min-h-[44px] py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm border border-slate-700 shadow-md flex items-center justify-center active:scale-[0.99]"
             >
               Switch to {planet === 'mars' ? 'Moon ⚪' : 'Mars 🔴'}
             </button>
@@ -349,7 +357,7 @@ export default function DebriefScreen() {
                 sfx('toggle', { volume: 0.5 })
                 returnToMenu()
               }}
-              className="text-xs text-slate-400 hover:text-white underline font-semibold cursor-pointer"
+              className="min-h-[44px] px-2 text-xs text-slate-400 hover:text-white underline font-semibold cursor-pointer flex items-center"
             >
               ← Return to Menu
             </button>
@@ -357,7 +365,7 @@ export default function DebriefScreen() {
             <button
               type="button"
               onClick={() => setShowDataSourcesModal(true)}
-              className="text-xs text-sky-400 hover:text-sky-300 underline font-semibold cursor-pointer flex items-center gap-1"
+              className="min-h-[44px] px-2 text-xs text-sky-400 hover:text-sky-300 underline font-semibold cursor-pointer flex items-center gap-1"
             >
               <span>🔬</span>
               <span>Data sources</span>

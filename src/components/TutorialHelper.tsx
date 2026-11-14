@@ -61,17 +61,23 @@ export default function TutorialHelper() {
 
   return (
     <div
-      className={`absolute inset-0 z-40 flex items-center justify-center p-4 pointer-events-auto select-none animate-fade-in ${
+      className={`absolute inset-0 z-40 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none animate-fade-in overflow-y-auto ${
         tutorialStep === 'day2_driving' ? 'bg-black/75 backdrop-blur-sm' : 'bg-black/50'
       }`}
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
     >
-      <div className="bg-slate-900/95 border-2 border-cyan-400/80 rounded-3xl max-w-md w-full p-5 text-white shadow-2xl flex flex-col gap-3 my-auto">
-        <div className="flex items-start gap-3.5">
+      <div className="bg-slate-900/95 border-2 border-cyan-400/80 rounded-3xl max-w-md w-full p-4 sm:p-5 text-white shadow-2xl flex flex-col gap-3 my-auto max-h-[92dvh] overflow-y-auto">
+        <div className="flex items-start gap-3">
           {/* Custom Drawn Robot Assistant (AERO) */}
-          <div className="w-14 h-14 rounded-2xl bg-cyan-950/80 border-2 border-cyan-400 flex items-center justify-center flex-shrink-0 shadow-lg shadow-cyan-950/50">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-cyan-950/80 border-2 border-cyan-400 flex items-center justify-center flex-shrink-0 shadow-lg shadow-cyan-950/50">
             <svg
               viewBox="0 0 64 64"
-              className="w-10 h-10 text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]"
+              className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
@@ -95,7 +101,7 @@ export default function TutorialHelper() {
             </svg>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
                 AERO • Base Assistant
@@ -103,13 +109,14 @@ export default function TutorialHelper() {
               <button
                 type="button"
                 onClick={dismissTutorial}
-                className="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded cursor-pointer"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] -m-2.5 flex items-center justify-center text-slate-400 hover:text-white text-sm font-bold rounded-full cursor-pointer transition-colors"
                 title="Dismiss (ESC)"
+                aria-label="Dismiss Tutorial"
               >
                 ✕
               </button>
             </div>
-            <h3 className="text-base font-extrabold text-white mt-0.5">
+            <h3 className="text-sm sm:text-base font-extrabold text-white mt-0.5 truncate">
               {current.title}
             </h3>
           </div>
@@ -129,7 +136,7 @@ export default function TutorialHelper() {
         <button
           type="button"
           onClick={dismissTutorial}
-          className="w-full py-2.5 px-4 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs tracking-wide shadow-md shadow-cyan-950/40"
+          className="w-full min-h-[44px] py-3 px-4 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm tracking-wide shadow-md shadow-cyan-950/40 flex items-center justify-center active:scale-[0.99]"
         >
           {current.buttonText}
         </button>

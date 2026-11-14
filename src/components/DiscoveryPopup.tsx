@@ -33,8 +33,16 @@ export default function DiscoveryPopup() {
   }[spot.type]
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pointer-events-auto select-none animate-fade-in overflow-y-auto">
-      <div className="bg-slate-900/95 border-2 border-orange-500/60 rounded-3xl max-w-lg w-full p-5 md:p-6 text-white shadow-2xl flex flex-col gap-3.5 my-auto">
+    <div
+      className="absolute inset-0 z-40 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none animate-fade-in overflow-y-auto bg-black/85 backdrop-blur-md"
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
+    >
+      <div className="bg-slate-900/95 border-2 border-orange-500/60 rounded-3xl max-w-lg w-full p-4 sm:p-6 text-white shadow-2xl flex flex-col gap-3.5 my-auto max-h-[92dvh] overflow-y-auto">
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <div className="flex items-center gap-2">
@@ -144,16 +152,18 @@ export default function DiscoveryPopup() {
           </div>
         )}
 
-        {/* Close / Resume Button */}
-        <button
-          onClick={() => {
-            sfx('click_soft', { volume: 0.6 })
-            closeDiscoveryPopup()
-          }}
-          className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm tracking-wide mt-1"
-        >
-          Resume mission
-        </button>
+        {/* Close / Resume Button (Sticky Footer) */}
+        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2 pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 border-t border-slate-800/80 mt-auto">
+          <button
+            onClick={() => {
+              sfx('click_soft', { volume: 0.6 })
+              closeDiscoveryPopup()
+            }}
+            className="w-full min-h-[48px] py-3.5 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-extrabold rounded-2xl transition-all cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm sm:text-base tracking-wide active:scale-[0.99]"
+          >
+            Resume mission
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -46,14 +46,22 @@ export default function ResultCard() {
       : 'quiet day'
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 pointer-events-auto animate-fade-in select-none overflow-y-auto">
-      <div className="bg-slate-900/95 border-2 border-orange-500/50 rounded-3xl max-w-md w-full p-5 md:p-6 text-white shadow-2xl flex flex-col gap-3 my-auto">
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-6 pointer-events-auto animate-fade-in select-none overflow-y-auto bg-black/80 backdrop-blur-md"
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
+    >
+      <div className="bg-slate-900/95 border-2 border-orange-500/50 rounded-3xl max-w-md w-full p-4 sm:p-6 text-white shadow-2xl flex flex-col gap-3 my-auto max-h-[92dvh] overflow-y-auto">
         {/* Title */}
         <div className="text-center">
           <span className="text-[11px] font-semibold tracking-wider text-orange-400 uppercase">
             Outpost Zero Mission Log
           </span>
-          <h2 className="text-2xl font-bold mt-0.5">Day {day} complete</h2>
+          <h2 className="text-xl sm:text-2xl font-bold mt-0.5">Day {day} complete</h2>
         </div>
 
         {/* Status Badge: Home safe vs Stranded */}
@@ -235,16 +243,18 @@ export default function ResultCard() {
           </p>
         </div>
 
-        {/* Next Day or Mission Debrief Button */}
-        <button
-          onClick={() => {
-            sfx('confirm', { volume: 0.6 })
-            startNextDay()
-          }}
-          className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm tracking-wide"
-        >
-          {day >= 20 ? 'View Mission Debrief 🚀' : `Start Day ${nextDayNumber}`}
-        </button>
+        {/* Next Day or Mission Debrief Button (Sticky Footer) */}
+        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2 pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 border-t border-slate-800/80 mt-auto">
+          <button
+            onClick={() => {
+              sfx('confirm', { volume: 0.6 })
+              startNextDay()
+            }}
+            className="w-full min-h-[48px] py-3.5 px-4 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-extrabold rounded-2xl transition-all cursor-pointer shadow-lg shadow-orange-900/40 text-center text-sm sm:text-base tracking-wide active:scale-[0.99]"
+          >
+            {day >= 20 ? 'View Mission Debrief 🚀' : `Start Day ${nextDayNumber}`}
+          </button>
+        </div>
       </div>
     </div>
   )

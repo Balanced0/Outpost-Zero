@@ -23,10 +23,15 @@ export default function GameCanvas() {
 
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      backgroundColor: '#1a0a00',
       parent: containerRef.current,
+      scale: {
+        mode: Phaser.Scale.RESIZE,
+        parent: containerRef.current,
+        autoCenter: Phaser.Scale.NO_CENTER, // autoCenter OFF — matches window size exactly, no letterboxing margins
+        width: '100%',
+        height: '100%',
+      },
+      backgroundColor: '#1a0a00',
       physics: { default: 'arcade', arcade: { debug: false } },
       scene: [PreloadScene, MarsScene],
     }
@@ -34,12 +39,17 @@ export default function GameCanvas() {
     gameRef.current = new Phaser.Game(config)
 
     const handleResize = () => {
-      gameRef.current?.scale.resize(window.innerWidth, window.innerHeight)
+      if (!gameRef.current) return
+      const w = window.innerWidth
+      const h = window.innerHeight
+      gameRef.current.scale.resize(w, h)
     }
     window.addEventListener('resize', handleResize)
+    window.addEventListener('orientationchange', handleResize)
 
     return () => {
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener('orientationchange', handleResize)
       gameRef.current?.destroy(true)
       gameRef.current = null
     }
@@ -49,5 +59,10 @@ export default function GameCanvas() {
     return null
   }
 
-  return <div ref={containerRef} className="absolute inset-0" />
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 w-[100vw] h-[100dvh] overflow-hidden m-0 p-0 pointer-events-auto"
+    />
+  )
 }

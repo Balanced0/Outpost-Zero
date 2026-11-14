@@ -34,18 +34,18 @@ export default function SunsetOverlay() {
   const nightOpacity = progress * (isMars ? 0.8 : 0.88)
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-10 transition-opacity duration-300">
+    <div className="absolute inset-0 w-full h-full pointer-events-none z-10 transition-opacity duration-300">
       {/* Warm orange Martian dust sunset glow (Mars only) */}
       {isMars && (
         <div
-          className="absolute inset-0 bg-gradient-to-b from-orange-600 via-amber-700 to-orange-950 mix-blend-color-burn"
+          className="absolute inset-0 w-full h-full bg-gradient-to-b from-orange-600 via-amber-700 to-orange-950 mix-blend-color-burn"
           style={{ opacity: orangeOpacity }}
         />
       )}
 
       {/* Deep Martian twilight into night OR Moon pitch-black space */}
       <div
-        className={`absolute inset-0 ${isMars ? 'bg-[#060b1c]' : 'bg-[#000000]'}`}
+        className={`absolute inset-0 w-full h-full ${isMars ? 'bg-[#060b1c]' : 'bg-[#000000]'}`}
         style={{ opacity: nightOpacity }}
       />
     </div>

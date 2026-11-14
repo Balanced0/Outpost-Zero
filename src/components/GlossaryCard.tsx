@@ -29,34 +29,41 @@ export default function GlossaryCard() {
   return (
     // Dim overlay — click outside to close
     <div
-      className="absolute inset-0 z-[70] flex items-center justify-center p-4 pointer-events-auto select-none"
-      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(3px)' }}
+      className="absolute inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto"
+      style={{
+        background: 'rgba(0,0,0,0.65)',
+        backdropFilter: 'blur(3px)',
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
       onPointerDown={(e) => {
         // Close only if clicking the backdrop itself, not the card
         if (e.target === e.currentTarget) closeGlossaryCard()
       }}
     >
-      {/* Card — bounce-in animation */}
+      {/* Card — bounce-in animation, internal scroll if screen is short */}
       <div
-        className="bg-slate-900 border-2 border-sky-500/60 rounded-3xl max-w-sm w-full p-7 shadow-2xl flex flex-col items-center text-center gap-5"
+        className="bg-slate-900 border-2 border-sky-500/60 rounded-3xl max-w-sm w-full p-5 sm:p-7 shadow-2xl flex flex-col items-center text-center gap-4 my-auto max-h-[92dvh] overflow-y-auto"
         style={{ animation: 'glossaryBounceIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' }}
         onPointerDown={(e) => e.stopPropagation()}
       >
         {/* Big emoji */}
-        <div className="w-20 h-20 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-5xl">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-4xl sm:text-5xl flex-shrink-0">
           {entry.emoji}
         </div>
 
         {/* Title */}
         <div>
-          <span className="text-[11px] font-bold tracking-widest text-sky-400 uppercase">
+          <span className="text-[10px] sm:text-[11px] font-bold tracking-widest text-sky-400 uppercase">
             Did you know?
           </span>
-          <h2 className="text-2xl font-extrabold text-white mt-1">{entry.title}</h2>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">{entry.title}</h2>
         </div>
 
         {/* Explanation */}
-        <p className="text-sm text-slate-200 leading-relaxed">{entry.explanation}</p>
+        <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">{entry.explanation}</p>
 
         {/* Got it! button */}
         <button
@@ -65,7 +72,7 @@ export default function GlossaryCard() {
             sfx('confirm', { volume: 0.55 })
             closeGlossaryCard()
           }}
-          className="w-full py-3.5 px-6 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-sky-900/50 text-base"
+          className="w-full min-h-[48px] py-3.5 px-6 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-2xl transition-colors cursor-pointer shadow-lg shadow-sky-900/50 text-sm sm:text-base active:scale-[0.99] mt-1"
         >
           Got it! 👍
         </button>
