@@ -4,15 +4,15 @@
 
 - **Team:** The Primeagens
 - **Competition:** NASA Space Apps Challenge 2026
-- **Challenge:** [CHALLENGE NAME]
+- **Challenge:** Build a Junior Astronaut Mission Trainer
 
 ---
 
 ## Project Links
 
-- **Live Game:** [LIVE_URL]
+- **Live Game:** [\[LIVE_URL\]](https://outpost-zero-theta.vercel.app/)
 - **Demo Video:** [VIDEO_URL]
-- **Source Repository:** [REPO_URL]
+- **Source Repository:** [\[REPO_URL\]](https://github.com/Balanced0/Outpost-Zero)
 
 ---
 
@@ -167,11 +167,15 @@ A dedicated **Data Sources & Science** modal in the menu provides kids and judge
 
 ## AI Tools Disclosure
 
-AI coding assistants ([TEAM TO CONFIRM TOOLS USED]) were used to assist with code drafting, refactoring, and documentation formatting. All architectural decisions, gameplay balance tuning, data verification, and testing were actively directed, implemented, and reviewed by the human team.
+AI coding assistants (Antigravity, Claude, Chatgpt) were used to assist with code drafting, refactoring, and documentation formatting. All architectural decisions, gameplay balance tuning, data verification, and testing were actively directed, implemented, and reviewed by the human team.
 
 ---
 
 ## Team
 
 **The Primeagens**
-- [MEMBER NAMES]
+- MD. Alvi Chowdhury
+- Abdullah Shahad
+- Ishfak Mahbub Samin
+- Saad Ahmed
+- Syed Owin Efaz
