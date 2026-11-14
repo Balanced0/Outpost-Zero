@@ -1,0 +1,121 @@
+import { useEffect, useState } from 'react'
+import { debugLogger } from '../utils/debugLogger'
+import { isLowQualityMode, getEffectiveDpr } from '../utils/qualitySettings'
+
+export default function DebugPanel() {
+  const [, setTick] = useState(0)
+  const [minimized, setMinimized] = useState(false)
+  const [forceClosed, setForceClosed] = useState(false)
+
+  useEffect(() => {
+    return debugLogger.subscribe(() => {
+      setTick((t) => t + 1)
+    })
+  }, [])
+
+  if (forceClosed) return null
+
+  const isVisible = debugLogger.isDebugActive()
+  if (!isVisible) return null
+
+  const textures = Array.from(debugLogger.textures.values())
+  const errors = debugLogger.errors
+  const isLowQ = isLowQualityMode()
+  const dpr = window.devicePixelRatio || 1
+  const effectiveDpr = getEffectiveDpr()
+  const vv = window.visualViewport
+
+  return (
+    <div className="fixed top-2 left-2 z-[99999] pointer-events-auto font-mono text-[11px] select-text">
+      {/* Prominent Red Error Box when an error occurs */}
+      {errors.length > 0 && (
+        <div className="bg-red-950/95 border-2 border-red-500 text-white rounded-xl p-3 shadow-2xl mb-2 max-w-sm sm:max-w-md animate-bounce">
+          <div className="flex items-center justify-between pb-1 mb-1 border-b border-red-700/60 font-bold text-red-200">
+            <span>🚨 Error Detected ({errors.length})</span>
+            <button
+              onClick={() => {
+                debugLogger.errors = []
+                debugLogger.hasError = false
+                setTick((t) => t + 1)
+              }}
+              className="text-xs bg-red-800 hover:bg-red-700 px-2 py-0.5 rounded text-white font-bold"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="space-y-1 max-h-36 overflow-y-auto text-red-100 text-[10px] break-words">
+            {errors.map((err, idx) => (
+              <div key={idx} className="bg-red-900/60 p-1.5 rounded border border-red-800">
+                {err}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Diagnostics Window */}
+      <div className="bg-slate-950/95 border border-cyan-500/70 text-slate-200 rounded-xl shadow-2xl overflow-hidden max-w-xs sm:max-w-sm">
+        <div className="bg-slate-900 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between">
+          <span className="font-bold text-cyan-400">Diagnostics (?debug=1)</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setMinimized(!minimized)}
+              className="text-[10px] bg-slate-800 hover:bg-slate-700 px-1.5 py-0.5 rounded text-slate-300"
+            >
+              {minimized ? 'Expand' : 'Collapse'}
+            </button>
+            <button
+              onClick={() => setForceClosed(true)}
+              className="text-[10px] bg-slate-800 hover:bg-slate-700 px-1.5 py-0.5 rounded text-red-300"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {!minimized && (
+          <div className="p-3 space-y-2 max-h-[70vh] overflow-y-auto text-[10px]">
+            {/* System Info */}
+            <div className="space-y-0.5 border-b border-slate-800/80 pb-2">
+              <div className="text-cyan-300 font-bold">DEVICE & VIEWPORT</div>
+              <div className="text-slate-400 break-words text-[9px]">{navigator.userAgent}</div>
+              <div>DPR: <span className="text-white">{dpr}</span> (Render scale: <span className="text-amber-300">{effectiveDpr}</span>)</div>
+              <div>Inner: <span className="text-white">{window.innerWidth} × {window.innerHeight}</span></div>
+              <div>VisualViewport: <span className="text-white">{vv ? `${Math.round(vv.width)} × ${Math.round(vv.height)}` : 'N/A'}</span></div>
+              <div>Touch points: <span className="text-white">{navigator.maxTouchPoints || 0}</span> ({('ontouchstart' in window) ? 'touch supported' : 'no ontouchstart'})</div>
+              <div>Quality Mode: <span className={isLowQ ? 'text-amber-400 font-bold' : 'text-emerald-400'}>{isLowQ ? 'LOW' : 'NORMAL'}</span></div>
+            </div>
+
+            {/* Renderer & Canvas */}
+            <div className="space-y-0.5 border-b border-slate-800/80 pb-2">
+              <div className="text-cyan-300 font-bold">RENDERER & CANVAS</div>
+              <div>Type: <span className="text-emerald-400 font-bold">{debugLogger.rendererType}</span></div>
+              <div>GL Max Texture: <span className="text-white">{debugLogger.maxTextureSize ? `${debugLogger.maxTextureSize}px` : 'N/A'}</span></div>
+              <div>Canvas CSS: <span className="text-white">{debugLogger.canvasCssW} × {debugLogger.canvasCssH}</span></div>
+              <div>Canvas Buffer: <span className="text-white">{debugLogger.canvasBackingW} × {debugLogger.canvasBackingH}</span> ({Math.round((debugLogger.canvasBackingW * debugLogger.canvasBackingH) / 1000)}k px)</div>
+            </div>
+
+            {/* Registered Textures */}
+            <div className="space-y-0.5">
+              <div className="text-cyan-300 font-bold">CODE TEXTURES ({textures.length})</div>
+              {textures.length === 0 ? (
+                <div className="text-slate-500 italic">None registered yet</div>
+              ) : (
+                <div className="space-y-1">
+                  {textures.map((t) => (
+                    <div key={t.key} className="flex justify-between text-slate-300 bg-slate-900/60 px-1.5 py-0.5 rounded">
+                      <span className="truncate pr-2">{t.key}</span>
+                      <span className={t.width > 2048 || t.height > 2048 ? 'text-red-400 font-bold' : 'text-slate-400'}>
+                        {t.width} × {t.height}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

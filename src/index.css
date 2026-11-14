@@ -20,9 +20,9 @@ html, body, #root {
   width: 100vw;
   min-width: 100vw;
   max-width: 100vw;
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  height: var(--app-h, 100dvh);
+  min-height: var(--app-h, 100dvh);
+  max-height: var(--app-h, 100dvh);
   overflow: hidden;
   margin: 0;
   padding: 0;
@@ -38,7 +38,7 @@ html, body, #root {
   position: fixed;
   inset: 0;
   width: 100vw;
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
   overflow: hidden;
 }
 

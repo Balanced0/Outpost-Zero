@@ -13,6 +13,7 @@ import {
 import { PLANETS } from '../config/planets'
 import { STORM_STRENGTHS } from '../config/balance'
 import { DiscoverySpot } from '../data/discoverySpots'
+import { debugLogger } from '../utils/debugLogger'
 
 const MAP_W = 4000
 const MAP_H = 4000
@@ -100,6 +101,9 @@ export default class MarsScene extends Phaser.Scene {
   private shieldLabelText!: Phaser.GameObjects.Text
 
   private headlightGfx!: Phaser.GameObjects.Graphics
+
+  // First-frame sentinel for BlackScreenGuard
+  private _firstFrameFired = false
 
   constructor() {
     super('MarsScene')
@@ -352,6 +356,7 @@ export default class MarsScene extends Phaser.Scene {
 
       // Add canvas texture to Phaser's texture manager
       this.textures.addCanvas(TEX_KEY, canvas)
+      debugLogger.recordTexture(TEX_KEY, TEX_SIZE, TEX_SIZE)
     }
 
     this.groundTileSprite = this.add.tileSprite(
@@ -787,6 +792,7 @@ export default class MarsScene extends Phaser.Scene {
     ctx.stroke()
 
     this.textures.addCanvas(key, canvas)
+    debugLogger.recordTexture(key, W, H)
     return key
   }
 
@@ -922,6 +928,7 @@ export default class MarsScene extends Phaser.Scene {
     ctx.stroke()
 
     this.textures.addCanvas(key, canvas)
+    debugLogger.recordTexture(key, W, H)
     return key
   }
 
@@ -1278,6 +1285,12 @@ export default class MarsScene extends Phaser.Scene {
 
     if (!isGameStarted) {
       return
+    }
+
+    // Notify BlackScreenGuard that the canvas is rendering (once only)
+    if (!this._firstFrameFired) {
+      this._firstFrameFired = true
+      window.dispatchEvent(new Event('phaser-frame-rendered'))
     }
 
     store.tickDayTimer(dt)

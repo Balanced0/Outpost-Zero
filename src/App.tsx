@@ -13,6 +13,8 @@ import DataSourcesModal from './components/DataSourcesModal'
 import GlossaryCard from './components/GlossaryCard'
 import SoundToggle from './components/SoundToggle'
 import MoonEarth from './components/MoonEarth'
+import DebugPanel from './components/DebugPanel'
+import BlackScreenGuard from './components/BlackScreenGuard'
 import { useGameStore } from './store/gameStore'
 import { useAutoGlossaryCards } from './hooks/useAutoGlossaryCards'
 import { useGameSounds } from './hooks/useGameSounds'
@@ -44,6 +46,10 @@ function AppInner() {
       <SoundToggle />
       {/* Earth globe — Moon map only */}
       <MoonEarth />
+      {/* Debug panel — only shown with ?debug=1 or on error */}
+      <DebugPanel />
+      {/* Black screen guard — shows reload buttons if canvas never renders */}
+      <BlackScreenGuard />
     </div>
   )
 }

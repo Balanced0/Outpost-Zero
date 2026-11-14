@@ -74,22 +74,30 @@ interface ActiveLoop {
 }
 const activeLoops: Map<string, ActiveLoop> = new Map()
 
-function getAudioCtx(): AudioContext {
+function getAudioCtx(): AudioContext | null {
   if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    audioCtx = new AudioContextClass()
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      if (!AudioContextClass) return null
+      audioCtx = new AudioContextClass()
 
-    masterGain = audioCtx.createGain()
-    masterGain.connect(audioCtx.destination)
-    masterGain.gain.value = _muted ? 0 : getSavedVolume()
+      masterGain = audioCtx.createGain()
+      masterGain.connect(audioCtx.destination)
+      masterGain.gain.value = _muted ? 0 : getSavedVolume()
 
-    sfxGain = audioCtx.createGain()
-    sfxGain.connect(masterGain)
-    sfxGain.gain.value = 1.0
+      sfxGain = audioCtx.createGain()
+      sfxGain.connect(masterGain)
+      sfxGain.gain.value = 1.0
 
-    musicGain = audioCtx.createGain()
-    musicGain.connect(masterGain)
-    musicGain.gain.value = _musicMuted ? 0 : 0.45
+      musicGain = audioCtx.createGain()
+      musicGain.connect(masterGain)
+      musicGain.gain.value = _musicMuted ? 0 : 0.45
+    } catch (e) {
+      console.warn('AudioContext failed to initialize:', e)
+      return null
+    }
   }
   return audioCtx
 }
@@ -148,6 +156,7 @@ async function loadBuffer(url: string): Promise<AudioBuffer | null> {
   if (cache.has(url)) return cache.get(url)!
   try {
     const ctx = getAudioCtx()
+    if (!ctx) return null
     const res = await fetch(url)
     if (!res.ok) return null
     const ab = await res.arrayBuffer()
@@ -166,29 +175,32 @@ export async function playSound(
 ) {
   if (_muted) return
   const path = SOUND_MAP[name]
-  if (!path) {
-    console.warn(`[sound] unknown key: ${name}`)
-    return
+  if (!path) return
+
+  try {
+    const ctx = getAudioCtx()
+    if (!ctx || !sfxGain) return
+
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {})
+    }
+
+    const buf = await loadBuffer(path)
+    if (!buf) return
+
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.playbackRate.value = opts.playbackRate ?? 1
+
+    const gainNode = ctx.createGain()
+    gainNode.gain.value = opts.volume ?? 1
+    src.connect(gainNode)
+    gainNode.connect(sfxGain)
+
+    src.start()
+  } catch {
+    // Non-fatal: never crash game for audio failure
   }
-  const ctx = getAudioCtx()
-
-  if (ctx.state === 'suspended') {
-    await ctx.resume()
-  }
-
-  const buf = await loadBuffer(path)
-  if (!buf) return
-
-  const src = ctx.createBufferSource()
-  src.buffer = buf
-  src.playbackRate.value = opts.playbackRate ?? 1
-
-  const gainNode = ctx.createGain()
-  gainNode.gain.value = opts.volume ?? 1
-  src.connect(gainNode)
-  gainNode.connect(sfxGain!)
-
-  src.start()
 }
 
 export function sfx(name: string, opts?: { volume?: number; playbackRate?: number }) {
@@ -205,43 +217,54 @@ export async function startLoop(
   const path = SOUND_MAP[soundName]
   if (!path) return
 
-  const ctx = getAudioCtx()
-  if (ctx.state === 'suspended') {
-    await ctx.resume()
+  try {
+    const ctx = getAudioCtx()
+    if (!ctx || !sfxGain) return
+
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {})
+    }
+
+    const buf = await loadBuffer(path)
+    if (!buf) return
+
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.loop = true
+    src.playbackRate.value = opts.playbackRate ?? 1
+
+    const gainNode = ctx.createGain()
+    const targetVol = opts.volume ?? 1
+    const fadeIn = opts.fadeIn ?? 0.15
+
+    gainNode.gain.setValueAtTime(0, ctx.currentTime)
+    gainNode.gain.linearRampToValueAtTime(targetVol, ctx.currentTime + fadeIn)
+
+    src.connect(gainNode)
+    gainNode.connect(sfxGain)
+
+    src.start()
+    activeLoops.set(loopId, { source: src, gainNode })
+  } catch {
+    // Non-fatal
   }
-
-  const buf = await loadBuffer(path)
-  if (!buf) return
-
-  const src = ctx.createBufferSource()
-  src.buffer = buf
-  src.loop = true
-  src.playbackRate.value = opts.playbackRate ?? 1
-
-  const gainNode = ctx.createGain()
-  const targetVol = opts.volume ?? 1
-  const fadeIn = opts.fadeIn ?? 0.15
-
-  gainNode.gain.setValueAtTime(0, ctx.currentTime)
-  gainNode.gain.linearRampToValueAtTime(targetVol, ctx.currentTime + fadeIn)
-
-  src.connect(gainNode)
-  gainNode.connect(sfxGain!)
-
-  src.start()
-  activeLoops.set(loopId, { source: src, gainNode })
 }
 
 export function stopLoop(loopId: string, fadeOut: number = 0.2) {
   const loop = activeLoops.get(loopId)
   if (!loop) return
 
-  const ctx = getAudioCtx()
-  const now = ctx.currentTime
-
-  loop.gainNode.gain.cancelScheduledValues(now)
-  loop.gainNode.gain.setValueAtTime(loop.gainNode.gain.value, now)
-  loop.gainNode.gain.linearRampToValueAtTime(0, now + fadeOut)
+  try {
+    const ctx = getAudioCtx()
+    if (ctx) {
+      const now = ctx.currentTime
+      loop.gainNode.gain.cancelScheduledValues(now)
+      loop.gainNode.gain.setValueAtTime(loop.gainNode.gain.value, now)
+      loop.gainNode.gain.linearRampToValueAtTime(0, now + fadeOut)
+    }
+  } catch {
+    // Ignore audio timing error
+  }
 
   setTimeout(() => {
     try {
@@ -256,8 +279,14 @@ export function stopLoop(loopId: string, fadeOut: number = 0.2) {
 export function setLoopVolume(loopId: string, volume: number) {
   const loop = activeLoops.get(loopId)
   if (!loop) return
-  const ctx = getAudioCtx()
-  loop.gainNode.gain.setValueAtTime(volume, ctx.currentTime)
+  try {
+    const ctx = getAudioCtx()
+    if (ctx) {
+      loop.gainNode.gain.setValueAtTime(volume, ctx.currentTime)
+    }
+  } catch {
+    // Ignore
+  }
 }
 
 // ---- Generative Space Ambient Music Synthesizer ----------------------------
@@ -285,76 +314,85 @@ let currentChordIndex = 0
 
 function playNextAmbientChord() {
   if (!musicRunning) return
-  const ctx = getAudioCtx()
-  if (ctx.state === 'suspended') return
+  try {
+    const ctx = getAudioCtx()
+    if (!ctx || !musicGain || ctx.state === 'suspended') return
 
-  const chord = SPACE_CHORDS[currentChordIndex % SPACE_CHORDS.length]
-  currentChordIndex++
+    const chord = SPACE_CHORDS[currentChordIndex % SPACE_CHORDS.length]
+    currentChordIndex++
 
-  const chordDuration = 7.5 // seconds per chord
-  const now = ctx.currentTime
+    const chordDuration = 7.5 // seconds per chord
+    const now = ctx.currentTime
 
-  // Filter node with gentle warmth
-  const filter = ctx.createBiquadFilter()
-  filter.type = 'lowpass'
-  filter.frequency.setValueAtTime(450, now)
-  filter.frequency.exponentialRampToValueAtTime(700, now + chordDuration * 0.5)
-  filter.frequency.exponentialRampToValueAtTime(420, now + chordDuration)
+    // Filter node with gentle warmth
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(450, now)
+    filter.frequency.exponentialRampToValueAtTime(700, now + chordDuration * 0.5)
+    filter.frequency.exponentialRampToValueAtTime(420, now + chordDuration)
 
-  const chordGain = ctx.createGain()
-  chordGain.gain.setValueAtTime(0, now)
-  chordGain.gain.linearRampToValueAtTime(0.08, now + 2.0) // gentle fade-in
-  chordGain.gain.setValueAtTime(0.08, now + chordDuration - 2.5)
-  chordGain.gain.linearRampToValueAtTime(0, now + chordDuration) // gentle fade-out
+    const chordGain = ctx.createGain()
+    chordGain.gain.setValueAtTime(0, now)
+    chordGain.gain.linearRampToValueAtTime(0.08, now + 2.0) // gentle fade-in
+    chordGain.gain.setValueAtTime(0.08, now + chordDuration - 2.5)
+    chordGain.gain.linearRampToValueAtTime(0, now + chordDuration) // gentle fade-out
 
-  filter.connect(chordGain)
-  chordGain.connect(musicGain!)
+    filter.connect(chordGain)
+    chordGain.connect(musicGain)
 
-  // Play each note with subtle detune for a lush, analog space pad sound
-  chord.forEach((freq, i) => {
-    const osc = ctx.createOscillator()
-    osc.type = i === 0 ? 'sine' : (i % 2 === 0 ? 'triangle' : 'sine')
-    osc.frequency.setValueAtTime(freq, now)
-    // Tiny detuning (cents) for lushness
-    osc.detune.setValueAtTime((i % 2 === 0 ? 4 : -4), now)
+    // Play each note with subtle detune for a lush, analog space pad sound
+    chord.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      osc.type = i === 0 ? 'sine' : (i % 2 === 0 ? 'triangle' : 'sine')
+      osc.frequency.setValueAtTime(freq, now)
+      // Tiny detuning (cents) for lushness
+      osc.detune.setValueAtTime((i % 2 === 0 ? 4 : -4), now)
 
-    osc.connect(filter)
-    osc.start(now)
-    osc.stop(now + chordDuration)
-  })
+      osc.connect(filter)
+      osc.start(now)
+      osc.stop(now + chordDuration)
+    })
 
-  // Optional: subtle high celestial chime (sparkle of distant stars)
-  if (Math.random() > 0.4) {
-    const chimeFreq = chord[chord.length - 1] * 2
-    const chimeOsc = ctx.createOscillator()
-    chimeOsc.type = 'sine'
-    chimeOsc.frequency.setValueAtTime(chimeFreq, now + 2.5)
+    // Optional: subtle high celestial chime (sparkle of distant stars)
+    if (Math.random() > 0.4) {
+      const chimeFreq = chord[chord.length - 1] * 2
+      const chimeOsc = ctx.createOscillator()
+      chimeOsc.type = 'sine'
+      chimeOsc.frequency.setValueAtTime(chimeFreq, now + 2.5)
 
-    const chimeGain = ctx.createGain()
-    chimeGain.gain.setValueAtTime(0, now + 2.5)
-    chimeGain.gain.linearRampToValueAtTime(0.025, now + 2.8)
-    chimeGain.gain.exponentialRampToValueAtTime(0.0001, now + 5.5)
+      const chimeGain = ctx.createGain()
+      chimeGain.gain.setValueAtTime(0, now + 2.5)
+      chimeGain.gain.linearRampToValueAtTime(0.025, now + 2.8)
+      chimeGain.gain.exponentialRampToValueAtTime(0.0001, now + 5.5)
 
-    chimeOsc.connect(chimeGain)
-    chimeGain.connect(musicGain!)
-    chimeOsc.start(now + 2.5)
-    chimeOsc.stop(now + 5.6)
+      chimeOsc.connect(chimeGain)
+      chimeGain.connect(musicGain)
+      chimeOsc.start(now + 2.5)
+      chimeOsc.stop(now + 5.6)
+    }
+
+    // Schedule next chord before this one finishes for a smooth crossfade
+    musicTimer = window.setTimeout(playNextAmbientChord, (chordDuration - 1.8) * 1000)
+  } catch {
+    // Non-fatal
   }
-
-  // Schedule next chord before this one finishes for a smooth crossfade
-  musicTimer = window.setTimeout(playNextAmbientChord, (chordDuration - 1.8) * 1000)
 }
 
 export function startAmbientMusic() {
   if (musicRunning) return
   musicRunning = true
-  const ctx = getAudioCtx()
-  if (ctx.state === 'suspended') {
-    ctx.resume().then(() => {
+  try {
+    const ctx = getAudioCtx()
+    if (!ctx) return
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        playNextAmbientChord()
+      }).catch(() => {/* ignore */})
+    } else {
       playNextAmbientChord()
-    }).catch(() => {/* ignore */})
-  } else {
-    playNextAmbientChord()
+    }
+  } catch {
+    // Non-fatal
   }
 }
 
