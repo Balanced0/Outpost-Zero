@@ -3,28 +3,40 @@ import { useGameStore, loadSavedSettings } from '../store/gameStore'
 import { PlanetId, PLANETS } from '../config/planets'
 import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 import { sfx } from '../utils/sound'
+import {
+  RocketIcon,
+  AstronautIcon,
+  MarsGlobeIcon,
+  MoonGlobeIcon,
+  DatabaseScienceIcon,
+  ZapBoltIcon,
+  CrystalSampleIcon,
+  RadarDishIcon,
+} from './icons/MissionIcons'
 
-// Lightweight fixed star coordinates for instant pure-CSS starfield (zero JS calculation)
+// Lightweight fixed star coordinates for instant pure-CSS starfield
 const STAR_DOTS = [
-  { x: 8,  y: 12, size: 2, opacity: 0.7 },
-  { x: 18, y: 35, size: 1.5, opacity: 0.5 },
-  { x: 28, y: 18, size: 2, opacity: 0.8 },
-  { x: 12, y: 72, size: 1.5, opacity: 0.4 },
-  { x: 24, y: 88, size: 2, opacity: 0.6 },
-  { x: 38, y: 8,  size: 1.5, opacity: 0.5 },
-  { x: 45, y: 28, size: 2, opacity: 0.7 },
-  { x: 55, y: 15, size: 1.5, opacity: 0.6 },
-  { x: 68, y: 32, size: 2, opacity: 0.8 },
-  { x: 82, y: 14, size: 1.5, opacity: 0.5 },
-  { x: 92, y: 22, size: 2, opacity: 0.7 },
-  { x: 88, y: 65, size: 2.5, opacity: 0.85 },
-  { x: 74, y: 78, size: 1.5, opacity: 0.4 },
-  { x: 85, y: 90, size: 2, opacity: 0.7 },
-  { x: 62, y: 92, size: 1.5, opacity: 0.5 },
-  { x: 48, y: 82, size: 2, opacity: 0.6 },
-  { x: 35, y: 64, size: 1.5, opacity: 0.4 },
-  { x: 5,  y: 50, size: 2, opacity: 0.6 },
-  { x: 95, y: 48, size: 1.5, opacity: 0.5 },
+  { x: 6, y: 10, size: 2, opacity: 0.75 },
+  { x: 15, y: 32, size: 1.5, opacity: 0.45 },
+  { x: 24, y: 16, size: 2.2, opacity: 0.8 },
+  { x: 11, y: 74, size: 1.5, opacity: 0.4 },
+  { x: 22, y: 88, size: 2, opacity: 0.65 },
+  { x: 36, y: 7, size: 1.5, opacity: 0.5 },
+  { x: 44, y: 24, size: 2, opacity: 0.7 },
+  { x: 56, y: 12, size: 1.5, opacity: 0.6 },
+  { x: 69, y: 29, size: 2, opacity: 0.8 },
+  { x: 83, y: 14, size: 1.5, opacity: 0.5 },
+  { x: 93, y: 22, size: 2, opacity: 0.75 },
+  { x: 89, y: 66, size: 2.5, opacity: 0.85 },
+  { x: 75, y: 80, size: 1.5, opacity: 0.4 },
+  { x: 86, y: 91, size: 2, opacity: 0.7 },
+  { x: 63, y: 93, size: 1.5, opacity: 0.5 },
+  { x: 49, y: 84, size: 2, opacity: 0.6 },
+  { x: 34, y: 65, size: 1.5, opacity: 0.4 },
+  { x: 4, y: 50, size: 2, opacity: 0.6 },
+  { x: 96, y: 46, size: 1.5, opacity: 0.5 },
+  { x: 18, y: 54, size: 1, opacity: 0.35 },
+  { x: 78, y: 44, size: 1.5, opacity: 0.55 },
 ]
 
 export default function StartMenu() {
@@ -55,22 +67,24 @@ export default function StartMenu() {
     })
   }
 
-  // Pre-resized (max 600px, ~75KB) Kenney planet illustrations
+  const isMars = selectedPlanet === 'mars'
   const planetImgSrc =
     selectedPlanet === 'moon' ? '/assets/menu/planet05.png' : '/assets/menu/planet02.png'
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto"
+      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto tech-grid-bg"
       style={{
-        background: 'radial-gradient(ellipse at 50% 20%, #151a34 0%, #090c1e 52%, #020308 100%)',
+        background: isMars
+          ? 'radial-gradient(ellipse at 50% 0%, rgba(154, 52, 18, 0.28) 0%, rgba(15, 23, 42, 0.92) 48%, #05070e 100%)'
+          : 'radial-gradient(ellipse at 50% 0%, rgba(14, 116, 144, 0.25) 0%, rgba(15, 23, 42, 0.92) 48%, #05070e 100%)',
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
         paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
         paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
       }}
     >
-      {/* 1. Plain CSS Starfield Dots — zero JS, 100% reliable background */}
+      {/* 1. Ambient Starfield & Orbital Rings */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         {STAR_DOTS.map((star, i) => (
           <div
@@ -85,67 +99,109 @@ export default function StartMenu() {
             }}
           />
         ))}
+
+        {/* Decorative Orbital Arcs */}
+        <svg
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] opacity-[0.07]"
+          viewBox="0 0 900 900"
+          fill="none"
+        >
+          <circle cx="450" cy="450" r="320" stroke="white" strokeWidth="1" strokeDasharray="6 8" />
+          <circle cx="450" cy="450" r="420" stroke="white" strokeWidth="1" />
+        </svg>
       </div>
 
-      {/* 2. Optional Resized Kenney Planet Image — fades in gently on top of gradient without blocking render */}
+      {/* 2. Floating Planet Render Illustration */}
       <div
-        className="absolute -top-12 -right-12 md:-top-16 md:-right-16 w-60 h-60 md:w-[440px] md:h-[440px] pointer-events-none overflow-hidden"
+        className="absolute -top-12 -right-12 md:-top-16 md:-right-16 w-64 h-64 md:w-[460px] md:h-[460px] pointer-events-none overflow-hidden animate-float-slow"
         aria-hidden="true"
       >
+        <div
+          className={`absolute inset-8 rounded-full blur-3xl transition-colors duration-700 ${
+            isMars ? 'bg-orange-500/15' : 'bg-cyan-400/15'
+          }`}
+        />
         <img
           src={planetImgSrc}
           alt=""
           loading="lazy"
           onLoad={() => setPlanetLoaded(true)}
           onError={() => setPlanetLoaded(false)}
-          className={`w-full h-full object-contain pointer-events-none select-none transition-opacity duration-1000 ${
-            planetLoaded ? 'opacity-25' : 'opacity-0'
+          className={`w-full h-full object-contain pointer-events-none select-none transition-all duration-700 ${
+            planetLoaded ? 'opacity-30 scale-100' : 'opacity-0 scale-95'
           }`}
         />
       </div>
 
-      {/* 3. Main Start Menu Card — Scrollable internally, sticky Launch button */}
-      <div className="bg-slate-900 border-2 border-orange-500/70 rounded-3xl max-w-xl w-full p-4 sm:p-7 text-white shadow-2xl flex flex-col gap-4 my-auto relative z-10 max-h-[92dvh] overflow-y-auto">
-        {/* Title & Tagline */}
-        <div className="text-center flex flex-col items-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400/40 text-[10px] sm:text-[11px] font-bold tracking-widest text-orange-400 uppercase mb-1.5">
-            <span>🚀</span>
-            <span>NASA Space Apps Challenge</span>
+      {/* 3. Main Mission Command Card */}
+      <div className="mission-panel rounded-[28px] max-w-xl w-full p-4 sm:p-7 text-white flex flex-col gap-4 my-auto relative z-10 max-h-[93dvh] overflow-y-auto animate-modal-in">
+        {/* Top Accent Line */}
+        <div
+          className={`absolute top-0 left-8 right-8 h-[2px] rounded-full transition-colors duration-500 ${
+            isMars
+              ? 'bg-gradient-to-r from-transparent via-orange-500/80 to-transparent'
+              : 'bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent'
+          }`}
+        />
+
+        {/* Header: Mission Badge, Title, Tagline */}
+        <div className="text-center flex flex-col items-center pt-0.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.1] text-[10px] sm:text-[11px] font-mono font-semibold tracking-widest text-orange-300 uppercase mb-2 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+            <span>NASA Space Apps Challenge · Mission Trainer</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-md">
-            Outpost Zero
+
+          <h1 className="font-display text-3xl sm:text-4xl md:text-[44px] font-bold tracking-tight text-white leading-none">
+            OUTPOST <span className={isMars ? 'text-orange-400' : 'text-cyan-400'}>ZERO</span>
           </h1>
-          <p className="text-xs sm:text-sm md:text-base font-semibold text-orange-300/90 mt-1 italic tracking-wide">
-            Explore far. Stay alive. Nothing is free.
+
+          <p className="text-xs sm:text-sm text-slate-300/90 mt-2 font-medium tracking-wide max-w-md">
+            Survive the Sun. Power the habitat. Explore the unknown across a 20-sol expedition.
           </p>
         </div>
 
-        {/* Commander Name Input */}
-        <div className="bg-slate-800/90 rounded-2xl p-3 border border-slate-700/80 flex flex-col gap-1">
-          <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <span>🧑‍🚀</span>
-            <span>Welcome, Mission Commander</span>
-          </label>
+        {/* Commander Callsign Input */}
+        <div className="bg-slate-950/55 rounded-2xl p-3.5 border border-white/[0.08] flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="commander-name-input"
+              className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5"
+            >
+              <AstronautIcon size={15} className="text-orange-400" />
+              <span>Welcome, Mission Commander</span>
+            </label>
+            <span className="text-[10px] font-mono text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06]">
+              ID // {(commanderName.trim() || 'COMMANDER').toUpperCase().slice(0, 12)}
+            </span>
+          </div>
+
           <div className="relative flex items-center">
             <input
+              id="commander-name-input"
               type="text"
               maxLength={16}
               value={commanderName}
               onChange={(e) => setCommanderName(e.target.value)}
               placeholder="Commander"
-              className="w-full min-h-[44px] bg-slate-950/90 border border-slate-700 rounded-xl px-3.5 py-2 text-white font-bold text-sm tracking-wide focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full min-h-[44px] bg-slate-900/90 border border-white/10 rounded-xl pl-3.5 pr-14 py-2 text-white font-semibold text-sm tracking-wide focus:outline-none focus:border-orange-400/80 focus:ring-2 focus:ring-orange-500/20 transition-all"
             />
-            <span className="absolute right-3 text-[11px] font-mono text-slate-500 pointer-events-none">
+            <span className="absolute right-3.5 text-[11px] font-mono text-slate-500 pointer-events-none">
               {commanderName.length}/16
             </span>
           </div>
         </div>
 
-        {/* Planet Selection (Stack vertically on phones, 2 columns on sm+) */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Choose Your Destination
-          </span>
+        {/* Destination Selection (Mars vs Moon) */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+              01 · Select Target Body
+            </span>
+            <span className="text-[10px] font-mono text-slate-400">
+              20-Sol Surface Deployment
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {/* Mars Card */}
             <button
@@ -154,23 +210,55 @@ export default function StartMenu() {
                 sfx('toggle', { volume: 0.5 })
                 setSelectedPlanet('mars')
               }}
-              className={`p-3 sm:p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 min-h-[44px] ${
+              className={`group p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col gap-2 min-h-[44px] relative overflow-hidden ${
                 selectedPlanet === 'mars'
-                  ? 'bg-orange-950/70 border-orange-500 shadow-lg shadow-orange-950/50 scale-[1.01]'
-                  : 'bg-slate-800/70 border-slate-700/80 hover:border-slate-500 opacity-80'
+                  ? 'bg-gradient-to-b from-orange-950/60 to-slate-900/90 border-orange-400/80 shadow-[0_0_24px_-4px_rgba(249,115,22,0.35)]'
+                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 hover:bg-slate-900/80 opacity-85 hover:opacity-100'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-2xl">🔴</span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/30">
-                  {PLANETS.mars.tagline}
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
+                      selectedPlanet === 'mars'
+                        ? 'bg-orange-500/20 border-orange-400/50 text-orange-300'
+                        : 'bg-white/5 border-white/10 text-orange-400/80'
+                    }`}
+                  >
+                    <MarsGlobeIcon size={21} />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-base text-white leading-tight">
+                      Mars
+                    </h3>
+                    <span className="text-[10px] font-mono text-orange-300/90">
+                      {PLANETS.mars.tagline}
+                    </span>
+                  </div>
+                </div>
+
+                <span
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] transition-all ${
+                    selectedPlanet === 'mars'
+                      ? 'bg-orange-500 border-orange-300 text-white shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                      : 'border-white/20 bg-transparent text-transparent'
+                  }`}
+                >
+                  ✓
                 </span>
               </div>
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-white">Mars</h3>
-                <p className="text-[11px] text-slate-300 leading-snug mt-0.5">
-                  Red ground, dust haze, and a 20s comms delay.
-                </p>
+
+              <p className="text-xs text-slate-300 leading-snug">
+                Red regolith, atmospheric dust haze, and a 20s DSN comms delay.
+              </p>
+
+              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-slate-300">
+                  <RadarDishIcon size={11} className="text-orange-400" /> 20s Comms
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-slate-300">
+                  <ZapBoltIcon size={11} className="text-emerald-400" /> Standard Drain
+                </span>
               </div>
             </button>
 
@@ -181,37 +269,94 @@ export default function StartMenu() {
                 sfx('toggle', { volume: 0.5 })
                 setSelectedPlanet('moon')
               }}
-              className={`p-3 sm:p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 min-h-[44px] ${
+              className={`group p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col gap-2 min-h-[44px] relative overflow-hidden ${
                 selectedPlanet === 'moon'
-                  ? 'bg-slate-800/90 border-cyan-400 shadow-lg shadow-cyan-950/50 scale-[1.01]'
-                  : 'bg-slate-800/70 border-slate-700/80 hover:border-slate-500 opacity-80'
+                  ? 'bg-gradient-to-b from-cyan-950/55 to-slate-900/90 border-cyan-400/80 shadow-[0_0_24px_-4px_rgba(34,211,238,0.32)]'
+                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 hover:bg-slate-900/80 opacity-85 hover:opacity-100'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-2xl">⚪</span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-                  {PLANETS.moon.tagline}
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
+                      selectedPlanet === 'moon'
+                        ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
+                        : 'bg-white/5 border-white/10 text-slate-300'
+                    }`}
+                  >
+                    <MoonGlobeIcon size={21} />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-base text-white leading-tight">
+                      Moon
+                    </h3>
+                    <span className="text-[10px] font-mono text-cyan-300/90">
+                      {PLANETS.moon.tagline}
+                    </span>
+                  </div>
+                </div>
+
+                <span
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] transition-all ${
+                    selectedPlanet === 'moon'
+                      ? 'bg-cyan-500 border-cyan-300 text-slate-950 font-bold shadow-[0_0_8px_rgba(34,211,238,0.6)]'
+                      : 'border-white/20 bg-transparent text-transparent'
+                  }`}
+                >
+                  ✓
                 </span>
               </div>
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-white">Moon</h3>
-                <p className="text-[11px] text-slate-300 leading-snug mt-0.5">
-                  Grey surface, swift 2s delay, but battery drains 10% faster.
-                </p>
+
+              <p className="text-xs text-slate-300 leading-snug">
+                Grey lunar craters, swift 2s Earth link, +10% vacuum battery drain.
+              </p>
+
+              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-slate-300">
+                  <RadarDishIcon size={11} className="text-cyan-400" /> 2s Comms
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/35 border border-white/[0.07] text-amber-300">
+                  <ZapBoltIcon size={11} className="text-amber-400" /> +10% Drain
+                </span>
               </div>
             </button>
           </div>
         </div>
 
-        {/* Difficulty Selection (Stack vertically on phones, 3 columns on sm+) */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Choose Difficulty
-          </span>
+        {/* Difficulty Selection */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+              02 · Mission Profile & Difficulty
+            </span>
+            <span className="text-[10px] font-mono text-slate-400">
+              Real NASA DONKI Weather
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {(['explorer', 'commander', 'mission_control'] as DifficultyId[]).map((diffKey) => {
               const diff = DIFFICULTIES[diffKey]
               const isSelected = selectedDifficulty === diffKey
+
+              const accentStyles = {
+                explorer: isSelected
+                  ? 'bg-emerald-950/45 border-emerald-400/80 shadow-[0_0_20px_-4px_rgba(16,185,129,0.3)]'
+                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 opacity-85 hover:opacity-100',
+                commander: isSelected
+                  ? 'bg-amber-950/45 border-amber-400/80 shadow-[0_0_20px_-4px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 opacity-85 hover:opacity-100',
+                mission_control: isSelected
+                  ? 'bg-purple-950/45 border-purple-400/80 shadow-[0_0_20px_-4px_rgba(168,85,247,0.3)]'
+                  : 'bg-slate-900/55 border-white/[0.08] hover:border-white/20 opacity-85 hover:opacity-100',
+              }[diffKey]
+
+              const dotColor = {
+                explorer: 'bg-emerald-400',
+                commander: 'bg-amber-400',
+                mission_control: 'bg-purple-400',
+              }[diffKey]
+
               return (
                 <button
                   key={diffKey}
@@ -220,52 +365,71 @@ export default function StartMenu() {
                     sfx('click_soft', { volume: 0.55 })
                     setSelectedDifficulty(diffKey)
                   }}
-                  className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 min-h-[44px] ${
-                    isSelected
-                      ? 'bg-slate-800 border-amber-400 shadow-md scale-[1.01]'
-                      : 'bg-slate-800/60 border-slate-700/70 hover:border-slate-500 opacity-80'
-                  }`}
+                  className={`p-3 rounded-2xl border text-left transition-all duration-150 cursor-pointer flex flex-col justify-between gap-2 min-h-[44px] ${accentStyles}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-white">{diff.name}</span>
-                    <span className="text-[9px] text-slate-400 font-mono">
-                      {diff.ageGroup.split(' ')[0]}
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-display font-bold text-xs sm:text-[13px] text-white flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+                        {diff.name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                      {diff.ageGroup}
+                    </span>
+                    <p className="text-[11px] text-slate-300 leading-snug mt-1.5">
+                      {diff.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.06] text-[10px] font-mono text-slate-300">
+                    <span className="inline-flex items-center gap-0.5">
+                      <ZapBoltIcon size={10} className="text-amber-400" />
+                      {diff.powerBudget}
+                    </span>
+                    <span className="inline-flex items-center gap-0.5">
+                      <CrystalSampleIcon size={10} className="text-purple-300" />
+                      {diff.discoveryGoal} pts
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                    {diff.ageGroup}
-                  </span>
-                  <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
-                    {diff.description}
-                  </p>
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* Skip Tutorial Checkbox */}
-        <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none min-h-[44px] py-1">
-          <input
-            type="checkbox"
-            checked={skipTutorial}
-            onChange={(e) => {
-              sfx('tick', { volume: 0.4 })
-              setSkipTutorial(e.target.checked)
-            }}
-            className="w-5 h-5 rounded accent-orange-500 cursor-pointer flex-shrink-0"
-          />
-          <span>Skip tutorial (recommended if you've already played)</span>
+        {/* Skip Tutorial Switch Row */}
+        <label className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-slate-950/45 border border-white/[0.07] hover:border-white/15 text-xs text-slate-300 cursor-pointer select-none min-h-[44px] transition-colors">
+          <div className="flex flex-col">
+            <span className="font-semibold text-slate-200 text-xs">
+              Skip onboarding flight tutorial
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Recommended if you have already completed Days 1–3 training
+            </span>
+          </div>
+          <div className="relative inline-flex items-center flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={skipTutorial}
+              onChange={(e) => {
+                sfx('tick', { volume: 0.4 })
+                setSkipTutorial(e.target.checked)
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-10 h-6 bg-slate-800 border border-white/15 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500 peer-checked:border-orange-400" />
+          </div>
         </label>
 
         {/* Sticky Launch Mission Button & Data Sources */}
-        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-slate-800/80 flex flex-col gap-2 mt-auto">
+        <div className="sticky bottom-0 bg-slate-950/90 backdrop-blur-xl pt-3 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-white/[0.08] flex flex-col gap-2 mt-auto">
           <button
             onClick={handleLaunch}
-            className="w-full min-h-[48px] py-3.5 px-6 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 active:from-orange-700 active:to-amber-700 text-white font-extrabold text-base md:text-lg rounded-2xl transition-all cursor-pointer shadow-xl shadow-orange-950/60 flex items-center justify-center gap-2 active:scale-[0.99]"
+            className="group relative overflow-hidden w-full min-h-[50px] py-3.5 px-6 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:via-amber-400 hover:to-orange-500 active:from-orange-600 active:to-amber-600 text-white font-display font-bold text-base md:text-lg tracking-wide rounded-2xl transition-all duration-200 cursor-pointer shadow-[0_10px_28px_-6px_rgba(249,115,22,0.55)] flex items-center justify-center gap-2.5 active:scale-[0.99]"
           >
-            <span>🚀</span>
-            <span>Launch mission</span>
+            <RocketIcon size={20} className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <span>Launch Mission</span>
           </button>
 
           <div className="flex items-center justify-center">
@@ -275,10 +439,10 @@ export default function StartMenu() {
                 sfx('open_soft', { volume: 0.5 })
                 setShowDataSourcesModal(true)
               }}
-              className="min-h-[44px] px-3 text-xs text-sky-400 hover:text-sky-300 underline font-semibold cursor-pointer flex items-center gap-1.5"
+              className="min-h-[40px] px-3.5 py-1 rounded-full text-xs text-sky-300 hover:text-white hover:bg-white/[0.05] font-medium cursor-pointer flex items-center gap-1.5 transition-colors"
             >
-              <span>🔬</span>
-              <span>Data Sources & NASA Attribution</span>
+              <DatabaseScienceIcon size={14} className="text-sky-400" />
+              <span>Data Sources & NASA Provenance</span>
             </button>
           </div>
         </div>

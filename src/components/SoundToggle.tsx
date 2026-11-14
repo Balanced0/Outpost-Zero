@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { isMuted, setMuted, isMusicMuted, setMusicMuted, sfx } from '../utils/sound'
+import {
+  SoundWaveIcon,
+  SoundMuteIcon,
+  MusicNoteIcon,
+  SlidersIcon,
+} from './icons/MissionIcons'
 
 /**
- * SoundToggle — Sound and Music controls.
+ * SoundToggle — Sound and Music telemetry controls.
  * Fixed in safe-area top-right corner with 44px touch targets.
  * Positioned in its own dedicated corner slot so it never overlaps HUD meters.
  */
@@ -31,23 +37,24 @@ export default function SoundToggle() {
     <div className="fixed top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.5rem,env(safe-area-inset-right))] z-[60] flex items-center gap-1.5 pointer-events-auto select-none">
       {/* Dropdown controls (when expanded) */}
       {showMenu && (
-        <div className="flex items-center gap-1.5 bg-slate-900/95 border border-slate-700 rounded-full px-2.5 py-1 shadow-2xl backdrop-blur-md animate-fade-in text-xs">
+        <div className="flex items-center gap-1.5 hud-glass rounded-full p-1 shadow-2xl animate-fade-in text-xs">
           <button
             type="button"
             onClick={toggleMusic}
-            title={musicMuted ? 'Turn music on' : 'Turn music off'}
-            className={`min-h-[44px] px-3 py-1 rounded-full font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+            title={musicMuted ? 'Turn ambient synth music on' : 'Turn ambient synth music off'}
+            className={`min-h-[36px] px-3 py-1 rounded-full font-semibold transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-[11px] tracking-wide ${
               musicMuted
-                ? 'bg-slate-800 text-slate-400 hover:text-white'
-                : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                ? 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-white/5'
+                : 'bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 shadow-[0_0_12px_rgba(99,102,241,0.25)] hover:bg-indigo-500/30'
             }`}
           >
-            <span>{musicMuted ? '🎵 Music Off' : '🎵 Music On'}</span>
+            <MusicNoteIcon size={13} className={musicMuted ? 'text-slate-500' : 'text-indigo-300'} />
+            <span>{musicMuted ? 'Music Off' : 'Music On'}</span>
           </button>
         </div>
       )}
 
-      {/* Main sound toggle button (round glossy, min 44px touch target) */}
+      {/* Main sound toggle button (min 44px touch target) */}
       <button
         type="button"
         onClick={toggleMute}
@@ -55,26 +62,39 @@ export default function SoundToggle() {
           e.preventDefault()
           setShowMenu((v) => !v)
         }}
-        title={muted ? 'Unmute audio (tap ⚙ for options)' : 'Mute audio (tap ⚙ for options)'}
+        title={muted ? 'Unmute audio (tap options for music)' : 'Mute audio (tap options for music)'}
         aria-label={muted ? 'Unmute audio' : 'Mute audio'}
-        className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-lg cursor-pointer transition-all shadow-lg shadow-black/60 border active:scale-95 ${
+        className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center cursor-pointer transition-all duration-150 active:scale-95 relative ${
           muted
-            ? 'bg-gradient-to-b from-rose-950/90 via-slate-900/95 to-black/95 border-rose-500/80 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.35)] hover:border-rose-400'
-            : 'bg-gradient-to-b from-slate-800/90 via-slate-900/95 to-black/95 border-slate-600/70 text-slate-100 hover:border-slate-400 hover:text-white'
+            ? 'hud-glass border-rose-500/50 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.25)] hover:border-rose-400/80'
+            : 'hud-glass text-slate-200 hover:text-white hover:border-white/25'
         }`}
       >
-        {muted ? '🔇' : '🔊'}
+        {muted ? <SoundMuteIcon size={18} /> : <SoundWaveIcon size={18} />}
+        <span
+          className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${
+            muted ? 'bg-rose-500' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+          }`}
+        />
       </button>
 
-      {/* Options toggle button (round glossy gear, min 44px touch target) */}
+      {/* Options toggle button (min 44px touch target) */}
       <button
         type="button"
         onClick={() => setShowMenu((v) => !v)}
         title="Audio options"
         aria-label="Audio options"
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-slate-800/90 via-slate-900/95 to-black/95 border border-slate-600/70 hover:border-slate-400 text-sm text-slate-300 hover:text-white flex items-center justify-center cursor-pointer transition-all shadow-lg shadow-black/60 active:scale-95"
+        className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full hud-glass flex items-center justify-center cursor-pointer transition-all duration-150 active:scale-95 ${
+          showMenu
+            ? 'border-sky-400/50 text-sky-300 bg-sky-950/40'
+            : 'text-slate-300 hover:text-white hover:border-white/25'
+        }`}
       >
-        {showMenu ? '✕' : '⚙️'}
+        {showMenu ? (
+          <span className="text-xs font-bold leading-none">✕</span>
+        ) : (
+          <SlidersIcon size={16} />
+        )}
       </button>
     </div>
   )

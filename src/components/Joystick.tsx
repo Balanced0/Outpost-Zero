@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { sfx } from '../utils/sound'
+import { ScannerReticleIcon } from './icons/MissionIcons'
 
-const OUTER_RADIUS = 44   // 88px diameter outer ring
-const THUMB_RADIUS = 20   // 40px diameter thumb
+const OUTER_RADIUS = 46 // 92px diameter outer ring
+const THUMB_RADIUS = 20 // 40px diameter thumb
 
 /**
  * TouchControls — Virtual Joystick on bottom-left, Touch Scan button on bottom-right.
@@ -41,7 +42,13 @@ export default function Joystick() {
   const activeTouchId = useRef<number | null>(null)
   const originRef = useRef<{ x: number; y: number } | null>(null)
 
-  if (!isGameStarted || !isTouchDevice || dayPhase === 'morning' || dayPhase === 'ended' || isMissionComplete) {
+  if (
+    !isGameStarted ||
+    !isTouchDevice ||
+    dayPhase === 'morning' ||
+    dayPhase === 'ended' ||
+    isMissionComplete
+  ) {
     return null
   }
 
@@ -128,7 +135,7 @@ export default function Joystick() {
       >
         <div
           ref={outerRef}
-          className="relative flex items-center justify-center rounded-full bg-slate-900/60 border-2 border-white/30 backdrop-blur-sm pointer-events-auto shadow-2xl active:border-orange-400"
+          className="relative flex items-center justify-center rounded-full bg-slate-950/65 border border-white/25 backdrop-blur-md pointer-events-auto shadow-[0_8px_30px_rgba(0,0,0,0.7)] active:border-orange-400/80"
           style={{
             width: OUTER_RADIUS * 2,
             height: OUTER_RADIUS * 2,
@@ -139,16 +146,17 @@ export default function Joystick() {
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
         >
-          {/* Subtle directional cross markings */}
+          {/* Inner telemetry ring & cardinal ticks */}
+          <div className="absolute inset-2.5 rounded-full border border-white/10 pointer-events-none" />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-            <div className="w-full h-0.5 bg-white" />
-            <div className="h-full w-0.5 bg-white absolute" />
+            <div className="w-full h-[1px] bg-white" />
+            <div className="h-full w-[1px] bg-white absolute" />
           </div>
 
           {/* Inner thumb */}
           <div
             ref={thumbRef}
-            className="rounded-full bg-gradient-to-tr from-white to-orange-200 border border-orange-400/50 shadow-lg pointer-events-none"
+            className="rounded-full bg-gradient-to-b from-white via-slate-100 to-orange-200 border-2 border-orange-400/70 shadow-[0_4px_14px_rgba(0,0,0,0.65)] pointer-events-none"
             style={{
               width: THUMB_RADIUS * 2,
               height: THUMB_RADIUS * 2,
@@ -170,7 +178,7 @@ export default function Joystick() {
         {activeScan ? (
           // While scanning: prominent scanning state with progress
           <div
-            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-cyan-950/90 border-2 border-cyan-400 text-cyan-300 shadow-2xl flex flex-col items-center justify-center pointer-events-auto"
+            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full hud-glass border-2 border-cyan-400 text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.4)] flex flex-col items-center justify-center pointer-events-auto"
             style={{ touchAction: 'none' }}
           >
             <div className="w-5 h-5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin mb-0.5" />
@@ -179,31 +187,31 @@ export default function Joystick() {
             </span>
           </div>
         ) : nearbySpot ? (
-          // Active nearby discovery: pulsing, thumb-friendly 60px button
+          // Active nearby discovery: pulsing, thumb-friendly 64px button
           <button
             type="button"
             onClick={() => {
               sfx('scan', { volume: 0.7 })
               startScan()
             }}
-            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-95 text-white font-extrabold shadow-2xl border-2 border-amber-300 flex flex-col items-center justify-center pointer-events-auto cursor-pointer animate-bounce"
+            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-95 text-white font-display font-bold shadow-[0_0_25px_rgba(245,158,11,0.5)] border-2 border-amber-300 flex flex-col items-center justify-center pointer-events-auto cursor-pointer animate-bounce"
             style={{ touchAction: 'none' }}
             title="Scan Discovery"
             aria-label="Scan Discovery"
           >
-            <span className="text-xl">🔬</span>
-            <span className="text-[10px] font-bold uppercase tracking-tight leading-none mt-0.5">
+            <ScannerReticleIcon size={20} />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-tight leading-none mt-1">
               Scan
             </span>
           </button>
         ) : (
-          // Inactive Scan placeholder: allows player to know where button is
+          // Inactive Scan placeholder
           <div
-            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-slate-900/40 border border-slate-700/60 text-slate-500 flex flex-col items-center justify-center pointer-events-auto opacity-50"
+            className="w-16 h-16 min-w-[56px] min-h-[56px] rounded-full bg-slate-950/50 border border-white/15 text-slate-400 flex flex-col items-center justify-center pointer-events-auto opacity-55 backdrop-blur-sm"
             style={{ touchAction: 'none' }}
           >
-            <span className="text-lg">🔬</span>
-            <span className="text-[9px] uppercase tracking-tight font-semibold mt-0.5">
+            <ScannerReticleIcon size={18} />
+            <span className="text-[9px] font-mono uppercase tracking-tight font-semibold mt-1">
               Scan
             </span>
           </div>
