@@ -20,6 +20,17 @@
 
 Outpost Zero is an educational 2D top-down browser game built for kids ages 7 to 12. Players take command of a vulnerable outpost on the Moon or Mars across a 20-day scientific mission. Every morning, players must divide a strict, limited power budget between the life-support Air Machine, the radiation Shield, and their exploration Rover. Through direct gameplay feedback, players learn that every choice carries a tradeoff and that surviving on an alien world requires balancing human safety with scientific curiosity.
 
+
+# Outpost Zero 🚀
+
+**Outpost Zero** is a space survival game that sparks young people's curiosity about other planets and what it takes to live on them.
+
+Players land on a new world and must make smart decisions about resources, shelter, and environment to build an outpost and survive. Along the way, they learn real science about planetary conditions, making space exploration fun, interactive, and easy to understand.
+
+Built for NASA Space Apps Challenge – Bangladesh.
+
+🎮 **Play it live:** https://outpost-zero-theta.vercel.app/
+
 ---
 
 ## Real Space Constraints It Teaches
