@@ -1,9 +1,22 @@
 import { useGameStore, BASE_X, BASE_Y } from '../store/gameStore'
 import { BASE_SAFE_DISTANCE, SUNSET_WARN_SEC } from '../config/gameConfig'
-import { PLANETS } from '../config/planets'
 import { DIFFICULTIES } from '../config/difficulty'
 import WhyButton from './WhyButton'
 import { sfx } from '../utils/sound'
+import {
+  BatteryBoltIcon,
+  AirLifeSupportIcon,
+  ShieldDefenseIcon,
+  HeartPulseIcon,
+  CrystalSampleIcon,
+  RadarDishIcon,
+  CompassNeedleIcon,
+  ScannerReticleIcon,
+  MarsGlobeIcon,
+  MoonGlobeIcon,
+  AlertTriangleIcon,
+  ZapBoltIcon,
+} from './icons/MissionIcons'
 
 export default function HUD() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
@@ -56,30 +69,30 @@ export default function HUD() {
     batteryCapacity > 0 ? (battery / batteryCapacity) * 100 : 0
   const batteryColor =
     batteryPercent > 50
-      ? 'bg-gradient-to-r from-emerald-500 to-green-400'
+      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
       : batteryPercent >= 20
-      ? 'bg-gradient-to-r from-amber-400 to-yellow-300'
-      : 'bg-gradient-to-r from-red-500 to-rose-400'
+      ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+      : 'bg-gradient-to-r from-rose-500 to-red-400'
 
   // Air meter color change
   const airColor =
     air > 50
-      ? 'bg-gradient-to-r from-cyan-500 to-blue-400'
+      ? 'bg-gradient-to-r from-cyan-500 to-sky-400'
       : air >= 20
-      ? 'bg-gradient-to-r from-amber-400 to-yellow-300'
-      : 'bg-gradient-to-r from-red-500 to-rose-400'
+      ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+      : 'bg-gradient-to-r from-rose-500 to-red-400'
   const airTextColor =
-    air > 50 ? 'text-cyan-400' : air >= 20 ? 'text-yellow-400' : 'text-red-400'
+    air > 50 ? 'text-cyan-300' : air >= 20 ? 'text-amber-300' : 'text-rose-400'
 
   // Crew health meter color change
   const healthColor =
     crewHealth > 50
       ? 'bg-gradient-to-r from-emerald-500 to-green-400'
       : crewHealth >= 20
-      ? 'bg-gradient-to-r from-amber-400 to-yellow-300'
-      : 'bg-gradient-to-r from-red-500 to-rose-400'
+      ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+      : 'bg-gradient-to-r from-rose-500 to-red-400'
   const healthTextColor =
-    crewHealth > 50 ? 'text-emerald-400' : crewHealth >= 20 ? 'text-yellow-400' : 'text-red-400'
+    crewHealth > 50 ? 'text-emerald-300' : crewHealth >= 20 ? 'text-amber-300' : 'text-rose-400'
 
   // Distance to base
   const dx = BASE_X - roverX
@@ -87,7 +100,7 @@ export default function HUD() {
   const distance = Math.round(Math.sqrt(dx * dx + dy * dy))
   const isRecharging = distance <= BASE_SAFE_DISTANCE
 
-  // Arrow angle to base: atan2 gives angle from positive-x axis; offset by +90 because ↑ points up
+  // Arrow angle to base
   const angleRad = Math.atan2(dy, dx)
   const angleDeg = (angleRad * 180) / Math.PI + 90
 
@@ -103,6 +116,9 @@ export default function HUD() {
 
   // Explorer Mode: Find nearest undiscovered spot & angle
   const hasHints = DIFFICULTIES[difficulty].hasHints
+  const discoveryGoal = DIFFICULTIES[difficulty].discoveryGoal
+  const goalProgressPct = Math.max(0, Math.min(100, (totalDiscoveryPoints / discoveryGoal) * 100))
+
   let nearestUndiscoveredSpot = null
   let nearestSpotDist = Infinity
   let nearestSpotAngleDeg = 0
@@ -139,28 +155,28 @@ export default function HUD() {
       <div className="sm:hidden">
         {/* A) Single Thin Top Bar: Day, Time bar, Discoveries */}
         <div
-          className="fixed top-0 left-0 right-0 z-20 bg-gradient-to-b from-slate-900/95 via-slate-950/95 to-black/95 backdrop-blur-md border-b border-white/10 px-2.5 py-1.5 flex items-center justify-between text-xs pointer-events-auto select-none shadow-md"
+          className="fixed top-0 left-0 right-0 z-20 hud-glass border-t-0 border-x-0 px-3 py-1.5 flex items-center justify-between text-xs pointer-events-auto select-none"
           style={{
-            paddingTop: 'max(0.35rem, env(safe-area-inset-top))',
-            paddingRight: 'max(6rem, calc(env(safe-area-inset-right) + 5.5rem))', // reserved for sound button
+            paddingTop: 'max(0.4rem, env(safe-area-inset-top))',
+            paddingRight: 'max(6.2rem, calc(env(safe-area-inset-right) + 5.8rem))',
           }}
         >
           {/* Day & Sun bar */}
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2">
-            <span className="font-extrabold text-orange-400 font-mono text-[11px] whitespace-nowrap">
+          <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+            <span className="font-mono font-bold text-orange-400 text-[11px] whitespace-nowrap">
               D{day}/20
             </span>
-            <div className="flex-1 max-w-[90px] h-2 bg-slate-800 rounded-full overflow-hidden border border-white/10 shadow-inner">
+            <div className="flex-1 max-w-[96px] h-2 bg-slate-900 rounded-full overflow-hidden border border-white/10">
               <div
                 className={`h-full rounded-full transition-all duration-200 ${
                   isSunsetWarning
-                    ? 'bg-gradient-to-r from-red-500 to-amber-500 animate-pulse'
+                    ? 'bg-gradient-to-r from-rose-500 to-amber-500 animate-pulse'
                     : 'bg-gradient-to-r from-amber-400 to-yellow-300'
                 }`}
                 style={{ width: `${dayPhase === 'morning' ? 100 : timePercent}%` }}
               />
             </div>
-            <span className="text-[10px] text-gray-300 font-mono">
+            <span className="text-[10px] text-slate-300 font-mono font-semibold">
               {dayPhase === 'morning' ? 'Plan' : `${Math.ceil(timeLeft)}s`}
             </span>
           </div>
@@ -169,19 +185,19 @@ export default function HUD() {
           <button
             type="button"
             onClick={() => openGlossaryCard('scan')}
-            className="flex items-center gap-1 bg-gradient-to-r from-purple-950/70 to-slate-900/90 border border-purple-400/60 shadow-[0_0_8px_rgba(168,85,247,0.3)] rounded-full px-2 py-0.5 text-[11px] font-bold text-amber-300 cursor-pointer flex-shrink-0"
+            className="flex items-center gap-1 bg-purple-950/60 border border-purple-400/40 rounded-full px-2.5 py-0.5 text-[11px] font-mono font-bold text-amber-300 cursor-pointer flex-shrink-0"
             title="Discoveries (tap to learn more)"
           >
-            <span>💎</span>
+            <CrystalSampleIcon size={12} className="text-purple-300" />
             <span>{totalDiscoveryPoints} pts</span>
           </button>
         </div>
 
         {/* B) Floating Icon-Only Meters (Battery, Air, Shield, Crew) */}
         <div
-          className="fixed z-20 flex items-center gap-1 pointer-events-auto select-none"
+          className="fixed z-20 flex items-center gap-1.5 pointer-events-auto select-none"
           style={{
-            top: 'max(2.6rem, calc(env(safe-area-inset-top) + 2.3rem))',
+            top: 'max(2.75rem, calc(env(safe-area-inset-top) + 2.4rem))',
             left: 'max(0.5rem, env(safe-area-inset-left))',
           }}
         >
@@ -193,10 +209,10 @@ export default function HUD() {
               openGlossaryCard('rover battery')
             }}
             title="Rover Battery — Tap for explanation"
-            className="min-h-[44px] px-2 py-1 bg-gradient-to-b from-slate-900/90 to-black/95 backdrop-blur-md rounded-2xl border border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.22)] flex items-center gap-1 text-[11px] font-mono font-bold text-white active:scale-95 cursor-pointer"
+            className="min-h-[42px] px-2.5 py-1 hud-glass rounded-xl border-emerald-500/40 flex items-center gap-1.5 text-[11px] font-mono font-bold text-white active:scale-95 cursor-pointer"
           >
-            <span>🔋</span>
-            <span className={batteryPercent < 20 ? 'text-red-400' : 'text-slate-200'}>
+            <BatteryBoltIcon size={14} className="text-emerald-400" />
+            <span className={batteryPercent < 20 ? 'text-rose-400' : 'text-slate-100'}>
               {Math.round(battery)}
             </span>
           </button>
@@ -209,9 +225,9 @@ export default function HUD() {
               openGlossaryCard('air machine')
             }}
             title="Air Machine — Tap for explanation"
-            className="min-h-[44px] px-2 py-1 bg-gradient-to-b from-slate-900/90 to-black/95 backdrop-blur-md rounded-2xl border border-cyan-400/60 shadow-[0_0_10px_rgba(34,211,238,0.22)] flex items-center gap-1 text-[11px] font-mono font-bold active:scale-95 cursor-pointer"
+            className="min-h-[42px] px-2.5 py-1 hud-glass rounded-xl border-cyan-400/40 flex items-center gap-1.5 text-[11px] font-mono font-bold active:scale-95 cursor-pointer"
           >
-            <span>🫁</span>
+            <AirLifeSupportIcon size={14} className="text-cyan-400" />
             <span className={airTextColor}>{Math.round(air)}%</span>
           </button>
 
@@ -223,9 +239,9 @@ export default function HUD() {
               openGlossaryCard('shield')
             }}
             title="Shield Defense — Tap for explanation"
-            className="min-h-[44px] px-2 py-1 bg-gradient-to-b from-slate-900/90 to-black/95 backdrop-blur-md rounded-2xl border border-purple-500/60 shadow-[0_0_10px_rgba(168,85,247,0.22)] flex items-center gap-1 text-[11px] font-mono font-bold text-purple-300 active:scale-95 cursor-pointer"
+            className="min-h-[42px] px-2.5 py-1 hud-glass rounded-xl border-purple-500/40 flex items-center gap-1.5 text-[11px] font-mono font-bold text-purple-300 active:scale-95 cursor-pointer"
           >
-            <span>🛡️</span>
+            <ShieldDefenseIcon size={14} className="text-purple-400" />
             <span>{shieldToday}%</span>
           </button>
 
@@ -237,38 +253,36 @@ export default function HUD() {
               openGlossaryCard('radiation')
             }}
             title="Crew Health — Tap for explanation"
-            className={`min-h-[44px] px-2 py-1 bg-gradient-to-b from-slate-900/90 to-black/95 backdrop-blur-md rounded-2xl border shadow-md flex items-center gap-1 text-[11px] font-mono font-bold active:scale-95 cursor-pointer ${
-              crewHealth > 50
-                ? 'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.22)]'
-                : 'border-red-500/80 shadow-[0_0_10px_rgba(239,68,68,0.3)]'
+            className={`min-h-[42px] px-2.5 py-1 hud-glass rounded-xl flex items-center gap-1.5 text-[11px] font-mono font-bold active:scale-95 cursor-pointer ${
+              crewHealth > 50 ? 'border-rose-500/40' : 'border-rose-500/80'
             }`}
           >
-            <span>❤️</span>
+            <HeartPulseIcon size={14} className="text-rose-400" />
             <span className={healthTextColor}>{Math.round(crewHealth)}%</span>
           </button>
         </div>
 
-        {/* C) Base Arrow & Distance as a glossy round badge */}
+        {/* C) Base Arrow & Distance as a round compass badge */}
         <div
           className="fixed z-20 pointer-events-auto select-none"
           style={{
-            top: 'max(2.6rem, calc(env(safe-area-inset-top) + 2.3rem))',
+            top: 'max(2.75rem, calc(env(safe-area-inset-top) + 2.4rem))',
             right: 'max(0.5rem, env(safe-area-inset-right))',
           }}
         >
           <div
-            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md border shadow-lg flex flex-col items-center justify-center text-white ${
+            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full hud-glass flex flex-col items-center justify-center text-white ${
               isRecharging
                 ? 'border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)] animate-pulse'
-                : 'border-slate-600/70'
+                : 'border-white/15'
             }`}
             title="Base Compass"
           >
             <span
-              className="text-xs font-bold leading-none transition-transform duration-100"
+              className="leading-none transition-transform duration-100 text-orange-400"
               style={{ transform: `rotate(${angleDeg}deg)` }}
             >
-              ↑
+              <CompassNeedleIcon size={13} />
             </span>
             <span className="font-mono text-[9px] font-bold leading-none mt-0.5 text-slate-200">
               {isRecharging ? '⚡' : `${distance}m`}
@@ -276,12 +290,12 @@ export default function HUD() {
           </div>
         </div>
 
-        {/* D) "Call Earth" as a glossy round button */}
+        {/* D) "Call Earth" round transceiver button */}
         {dayPhase !== 'morning' && dayPhase !== 'ended' && (
           <div
             className="fixed z-20 pointer-events-auto select-none"
             style={{
-              top: 'max(5.8rem, calc(env(safe-area-inset-top) + 5.5rem))',
+              top: 'max(5.9rem, calc(env(safe-area-inset-top) + 5.6rem))',
               right: 'max(0.5rem, env(safe-area-inset-right))',
             }}
           >
@@ -293,16 +307,16 @@ export default function HUD() {
                   startCallEarth()
                 }}
                 disabled={battery < 5}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 active:scale-95 disabled:opacity-40 border-2 border-blue-400 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)] flex flex-col items-center justify-center cursor-pointer transition-all"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-sky-500 to-blue-700 hover:from-sky-400 hover:to-blue-600 active:scale-95 disabled:opacity-40 border border-sky-300/60 text-white shadow-[0_0_14px_rgba(56,189,248,0.4)] flex flex-col items-center justify-center cursor-pointer transition-all"
                 title="Call Earth (costs 5 battery)"
                 aria-label="Call Earth"
               >
-                <span className="text-sm">📡</span>
-                <span className="text-[8px] font-mono font-bold leading-none">-5🔋</span>
+                <RadarDishIcon size={14} />
+                <span className="text-[8px] font-mono font-bold leading-none mt-0.5">-5⚡</span>
               </button>
             ) : callEarthState === 'calling' ? (
               <div
-                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-900/95 border-2 border-sky-400 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.35)] flex flex-col items-center justify-center animate-pulse"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full hud-glass border-sky-400/70 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.35)] flex flex-col items-center justify-center animate-pulse"
                 title="Transmission in flight..."
               >
                 <div className="w-3.5 h-3.5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin mb-0.5" />
@@ -314,7 +328,7 @@ export default function HUD() {
               <button
                 type="button"
                 onClick={dismissCallEarthReply}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-emerald-500 to-green-600 border-2 border-emerald-300 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)] flex items-center justify-center text-lg animate-bounce cursor-pointer"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-b from-emerald-500 to-teal-600 border border-emerald-300 text-white shadow-[0_0_14px_rgba(16,185,129,0.5)] flex items-center justify-center text-base animate-bounce cursor-pointer"
                 title="Reply received! Tap to read"
                 aria-label="Read Earth Transmission"
               >
@@ -329,18 +343,18 @@ export default function HUD() {
           <div
             className="fixed z-20 pointer-events-auto select-none"
             style={{
-              top: 'max(5.8rem, calc(env(safe-area-inset-top) + 5.5rem))',
+              top: 'max(5.9rem, calc(env(safe-area-inset-top) + 5.6rem))',
               left: 'max(0.5rem, env(safe-area-inset-left))',
             }}
           >
-            <div className="bg-gradient-to-b from-slate-900/90 to-black/95 backdrop-blur-md border border-teal-400/60 shadow-[0_0_10px_rgba(20,184,166,0.3)] rounded-full px-2.5 py-1 flex items-center gap-1.5 text-[10px] text-teal-300 font-mono">
+            <div className="hud-glass border-teal-400/50 rounded-full px-2.5 py-1 flex items-center gap-1.5 text-[10px] text-teal-300 font-mono">
               <span
-                className="text-xs font-bold leading-none transition-transform duration-100"
+                className="leading-none transition-transform duration-100 text-teal-300"
                 style={{ transform: `rotate(${nearestSpotAngleDeg}deg)` }}
               >
-                ↑
+                <CompassNeedleIcon size={11} />
               </span>
-              <span className="truncate max-w-[120px]">
+              <span className="truncate max-w-[125px]">
                 {nearestUndiscoveredSpot.name} {Math.round(nearestSpotDist)}m
               </span>
             </div>
@@ -355,8 +369,8 @@ export default function HUD() {
               top: 'max(8.5rem, calc(env(safe-area-inset-top) + 8rem))',
             }}
           >
-            <div className="animate-bounce bg-red-600/90 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-red-400/50 shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-sm">
-              <span>⚠️</span>
+            <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-md">
+              <AlertTriangleIcon size={14} />
               <span className="truncate">
                 {planet === 'moon' ? 'Night soon! Head home.' : 'Sunset soon! Head home.'}
               </span>
@@ -369,86 +383,114 @@ export default function HUD() {
       {/* 2. DESKTOP HUD (screens ≥ 640px, hidden sm:block)              */}
       {/* ============================================================== */}
       <div className="hidden sm:block absolute inset-0 pointer-events-none z-20">
-        {/* Top-left: Battery, Base, Discoveries, Call Earth, Nearest (Explorer only) */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2.5">
+        {/* Top-left: Battery, Base Compass, Discoveries, Call Earth, Nearest (Explorer only) */}
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
           {/* A) Rover Battery Gauge */}
-          <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.22)] pointer-events-auto flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/25 to-emerald-700/40 border border-emerald-400/50 flex items-center justify-center text-lg shadow-[0_0_8px_rgba(16,185,129,0.3)] flex-shrink-0">
-              🔋
+          <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center text-emerald-300 flex-shrink-0">
+              <BatteryBoltIcon size={18} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               <div className="text-white text-xs font-semibold flex items-center justify-between">
                 <span className="flex items-center gap-1">
-                  <span>Rover Battery</span>
+                  <span className="font-display tracking-tight">Rover Battery</span>
                   <WhyButton term="rover battery" />
                 </span>
-                <span className="font-mono text-[11px] text-slate-300 font-bold">
+                <span
+                  className={`font-mono text-[11px] font-bold ${
+                    batteryPercent < 20 ? 'text-rose-400 animate-pulse' : 'text-slate-200'
+                  }`}
+                >
                   {Math.round(battery)} / {Math.round(batteryCapacity)}
                 </span>
               </div>
-              <div className="relative w-full h-2.5 bg-slate-800/80 rounded-full overflow-hidden border border-white/5 shadow-inner">
+              <div className="relative w-full h-2 bg-slate-900/90 rounded-full overflow-hidden border border-white/[0.07]">
                 <div
-                  className={`h-full rounded-full transition-all duration-300 ease-out ${batteryColor} shadow-[0_0_8px_rgba(16,185,129,0.5)]`}
+                  className={`h-full rounded-full transition-all duration-300 ease-out ${batteryColor}`}
                   style={{ width: `${Math.max(0, Math.min(100, batteryPercent))}%` }}
                 />
               </div>
             </div>
           </div>
 
-          {/* B) Base Direction Panel */}
-          <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-slate-700/70 shadow-[0_0_12px_rgba(148,163,184,0.12)] pointer-events-auto flex items-center gap-2.5">
+          {/* B) Base Vector Compass Panel */}
+          <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white text-base leading-none transition-transform duration-100 shadow-sm border ${
+              className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-100 border ${
                 isRecharging
-                  ? 'bg-emerald-950/80 border-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)] animate-pulse'
-                  : 'bg-slate-800/90 border-slate-600/60'
+                  ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.35)]'
+                  : 'bg-slate-900/90 border-white/15 text-orange-400'
               }`}
               style={{ transform: `rotate(${angleDeg}deg)` }}
             >
-              ↑
+              <CompassNeedleIcon size={15} />
             </div>
             {isRecharging ? (
-              <div className="flex flex-col">
-                <span className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">BASE</span>
-                <span className="text-emerald-300 text-xs font-bold font-mono animate-pulse">⚡ Recharging!</span>
+              <div className="flex-1 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-wider">
+                    Outpost Perimeter
+                  </span>
+                  <span className="text-emerald-300 text-xs font-bold font-mono flex items-center gap-1">
+                    <ZapBoltIcon size={12} /> Recharging!
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
+                  SAFE
+                </span>
               </div>
             ) : (
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">BASE</span>
-                <span className="text-white text-xs font-mono font-bold">{distance} m</span>
+              <div className="flex-1 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">
+                    Base Vector
+                  </span>
+                  <span className="text-white text-xs font-mono font-bold">{distance} m</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06]">
+                  HDG {((Math.round(angleDeg) % 360) + 360) % 360}°
+                </span>
               </div>
             )}
           </div>
 
           {/* C) Discoveries Score & Goal */}
-          <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-purple-500/70 shadow-[0_0_15px_rgba(168,85,247,0.22)] pointer-events-auto flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500/25 to-purple-700/40 border border-purple-400/50 flex items-center justify-center text-lg shadow-[0_0_8px_rgba(168,85,247,0.3)] flex-shrink-0">
-              💎
+          <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center text-purple-300 flex-shrink-0">
+              <CrystalSampleIcon size={18} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <div className="flex items-center justify-between text-xs font-semibold text-white">
                 <span className="flex items-center gap-1">
-                  <span>Discoveries</span>
+                  <span className="font-display tracking-tight">Discoveries</span>
                   <WhyButton term="scan" />
                 </span>
                 <span className="font-mono text-xs font-bold text-amber-300">
                   {totalDiscoveryPoints} pts
                 </span>
               </div>
+              <div className="w-full h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-white/[0.06]">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-amber-400 rounded-full transition-all duration-300"
+                  style={{ width: `${goalProgressPct}%` }}
+                />
+              </div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>Goal: {totalDiscoveryPoints} / {DIFFICULTIES[difficulty].discoveryGoal} points</span>
-                {totalDiscoveryPoints >= DIFFICULTIES[difficulty].discoveryGoal && (
-                  <span className="text-emerald-400 font-bold">✓</span>
+                <span>
+                  Goal: {totalDiscoveryPoints} / {discoveryGoal} points
+                </span>
+                {totalDiscoveryPoints >= discoveryGoal && (
+                  <span className="text-emerald-400 font-bold">✓ Met</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* D) Call Earth */}
+          {/* D) Call Earth DSN Transceiver */}
           {dayPhase !== 'morning' && dayPhase !== 'ended' && (
-            <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-blue-500/70 shadow-[0_0_15px_rgba(59,130,246,0.25)] pointer-events-auto flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/25 to-blue-700/40 border border-blue-400/50 flex items-center justify-center text-lg shadow-[0_0_8px_rgba(59,130,246,0.3)] flex-shrink-0">
-                📡
+            <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/35 flex items-center justify-center text-sky-300 flex-shrink-0">
+                <RadarDishIcon size={18} />
               </div>
               <div className="flex-1 min-w-0 flex items-center justify-between">
                 {callEarthState === 'idle' ? (
@@ -460,32 +502,36 @@ export default function HUD() {
                         startCallEarth()
                       }}
                       disabled={battery < 5}
-                      className="flex-1 mr-1 min-h-[38px] py-1.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:from-blue-700 active:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                      className="flex-1 mr-1.5 min-h-[36px] py-1.5 px-3 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98]"
                       title="Send a message to NASA Mission Control (costs 5 battery)"
                     >
-                      <span>Call Earth (-5 🔋)</span>
+                      <span>Call Earth</span>
+                      <span className="font-mono text-[10px] text-sky-200 bg-black/25 px-1.5 py-0.5 rounded">
+                        -5⚡
+                      </span>
                     </button>
                     <WhyButton term="comms delay" />
                   </>
                 ) : callEarthState === 'calling' ? (
                   <>
-                    <div className="flex items-center gap-1.5 text-xs text-sky-300 animate-pulse font-mono font-bold">
-                      <div className="w-3 h-3 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
-                      <span>Waiting... {Math.ceil(callEarthCountdown)}s</span>
+                    <div className="flex items-center gap-2 text-xs text-sky-300 font-mono font-bold">
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+                      <span>Signal: {Math.ceil(callEarthCountdown)}s</span>
                     </div>
                     <WhyButton term="comms delay" />
                   </>
                 ) : (
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                      <span>📩</span> Reply received!
+                    <span className="text-xs text-emerald-300 font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      Reply ready!
                     </span>
                     <button
                       type="button"
                       onClick={dismissCallEarthReply}
-                      className="min-h-[36px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow cursor-pointer transition-colors"
+                      className="min-h-[34px] px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow cursor-pointer transition-colors"
                     >
-                      View
+                      Read
                     </button>
                   </div>
                 )}
@@ -495,79 +541,93 @@ export default function HUD() {
 
           {/* E) Explorer Mode Nearest Hint Panel (ONLY on Explorer difficulty) */}
           {difficulty === 'explorer' && nearestUndiscoveredSpot && dayPhase !== 'morning' && (
-            <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-teal-500/70 shadow-[0_0_15px_rgba(20,184,166,0.25)] pointer-events-auto flex items-center gap-2.5">
+            <div className="hud-glass border-teal-400/40 rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
               <div
-                className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500/25 to-emerald-700/40 border border-teal-400/50 flex items-center justify-center text-teal-300 text-base leading-none transition-transform duration-100 shadow-[0_0_8px_rgba(20,184,166,0.3)] flex-shrink-0"
+                className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-400/40 flex items-center justify-center text-teal-300 transition-transform duration-100 flex-shrink-0"
                 style={{ transform: `rotate(${nearestSpotAngleDeg}deg)` }}
               >
-                ↑
+                <CompassNeedleIcon size={15} />
               </div>
               <div className="flex-1 min-w-0 flex flex-col leading-tight">
-                <span className="text-teal-200 text-xs font-bold truncate">
-                  Nearest: {nearestUndiscoveredSpot.name}
+                <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-semibold">
+                  Explorer Radar
                 </span>
-                <span className="text-teal-400/80 font-mono text-[10px]">
+                <span className="text-white text-xs font-bold truncate mt-0.5">
+                  {nearestUndiscoveredSpot.name}
+                </span>
+                <span className="text-teal-300/90 font-mono text-[10px]">
                   {Math.round(nearestSpotDist)} m away
                 </span>
               </div>
-              <span className="text-teal-400 text-base font-bold pr-1 select-none">
-                ›
-              </span>
             </div>
           )}
         </div>
 
         {/* Top-center: Day Timer, Sun bar, & Phase Tabs */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-auto">
-          <div className="bg-gradient-to-b from-slate-900/95 via-slate-950/95 to-black/95 backdrop-blur-md border border-slate-700/80 shadow-[0_0_20px_rgba(0,0,0,0.6)] rounded-2xl px-5 py-2.5 flex flex-col items-center w-72 sm:w-80 gap-2">
-            {/* Header: Planet dot and real difficulty name once */}
-            <div className="flex items-center justify-center w-full text-xs font-semibold text-slate-300 gap-1.5 border-b border-white/10 pb-1.5">
-              <span>{planet === 'mars' ? '🔴 Mars' : '⚪ Moon'}</span>
-              <span className="text-slate-500">·</span>
-              <span className="text-slate-200">{DIFFICULTIES[difficulty].name}</span>
+          <div className="hud-glass rounded-2xl px-5 py-2.5 flex flex-col items-center w-72 sm:w-80 gap-2">
+            {/* Header: Planet, Difficulty, Commander */}
+            <div className="flex items-center justify-between w-full text-[11px] font-medium text-slate-300 border-b border-white/[0.08] pb-1.5">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+                {planet === 'mars' ? (
+                  <MarsGlobeIcon size={14} className="text-orange-400" />
+                ) : (
+                  <MoonGlobeIcon size={14} className="text-cyan-300" />
+                )}
+                <span>{planet === 'mars' ? 'Mars' : 'Moon'}</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-300">{DIFFICULTIES[difficulty].name}</span>
+              </span>
+              <span className="font-mono text-[10px] text-slate-400 truncate max-w-[100px]">
+                {commanderName}
+              </span>
             </div>
 
             {/* Day Title and Time Left */}
             <div className="flex items-center justify-between w-full text-xs font-bold text-white">
-              <span className="text-orange-400 font-extrabold tracking-wide text-sm">
+              <span className="font-display text-orange-400 font-bold tracking-tight text-sm">
                 Day {day} of {maxDays}
               </span>
               <div className="flex items-center gap-1">
-                <span className="font-mono text-slate-200 text-xs font-bold">
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    isSunsetWarning ? 'text-rose-400 animate-pulse' : 'text-slate-200'
+                  }`}
+                >
                   {dayPhase === 'morning' ? 'Planning' : `${Math.ceil(timeLeft)}s left`}
                 </span>
                 <WhyButton term="sunset" />
               </div>
             </div>
 
-            {/* Thicker rounded progress bar with subtle glow */}
-            <div className="relative w-full h-3 bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-inner">
+            {/* Daylight progress bar */}
+            <div className="relative w-full h-2.5 bg-slate-900/90 rounded-full overflow-hidden border border-white/[0.08]">
               <div
                 className={`h-full rounded-full transition-all duration-200 ${
                   isSunsetWarning
-                    ? 'bg-gradient-to-r from-red-500 to-amber-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
-                    : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 shadow-[0_0_10px_rgba(251,191,36,0.5)]'
+                    ? 'bg-gradient-to-r from-rose-500 to-amber-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]'
+                    : 'bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400'
                 }`}
                 style={{ width: `${dayPhase === 'morning' ? 100 : timePercent}%` }}
               />
             </div>
 
-            {/* Pill-shaped Morning / Midday / Sunset Tabs */}
-            <div className="flex items-center justify-between w-full gap-1 pt-0.5">
+            {/* Segmented Morning / Midday / Sunset Tabs */}
+            <div className="flex items-center justify-between w-full gap-1 bg-slate-950/60 p-0.5 rounded-xl border border-white/[0.06]">
               {[
-                { id: 'morning', label: '🌅 Morning' },
-                { id: 'midday', label: '☀️ Midday' },
-                { id: 'sunset', label: planet === 'moon' ? '🌑 Night' : '🌇 Sunset' },
+                { id: 'morning', label: 'Morning' },
+                { id: 'midday', label: 'Midday' },
+                { id: 'sunset', label: planet === 'moon' ? 'Night' : 'Sunset' },
               ].map((tab) => {
                 const isActive = currentPhase === tab.id
 
                 return (
                   <div
                     key={tab.id}
-                    className={`flex-1 text-center py-1 px-1 rounded-full text-[10px] font-bold transition-all ${
+                    className={`flex-1 text-center py-1 px-1.5 rounded-lg text-[10px] font-mono font-bold transition-all ${
                       isActive
-                        ? 'border-2 border-amber-400 bg-amber-500/20 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
-                        : 'border border-slate-800 bg-slate-900/40 text-slate-500'
+                        ? 'bg-amber-500/20 border border-amber-400/50 text-amber-300 shadow-sm'
+                        : 'text-slate-500 border border-transparent'
                     }`}
                   >
                     {tab.label}
@@ -579,8 +639,8 @@ export default function HUD() {
 
           {/* Sunset Alert Banner */}
           {isSunsetWarning && (
-            <div className="animate-bounce bg-red-600/90 text-white text-xs font-bold px-4 py-1.5 rounded-full border border-red-400/50 shadow-lg flex items-center gap-1.5 backdrop-blur-sm pointer-events-auto">
-              <span>⚠️</span>
+            <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-4 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center gap-1.5 backdrop-blur-md pointer-events-auto">
+              <AlertTriangleIcon size={14} />
               <span>{planet === 'moon' ? 'Night soon! Head home.' : 'Sunset soon! Head home.'}</span>
             </div>
           )}
@@ -588,25 +648,25 @@ export default function HUD() {
 
         {/* Top-right: Base Survival Meters (Air, Shield, Crew health) */}
         {/* Positioned at top-[4.5rem] right-4 so it NEVER overlaps SoundToggle in the top-right corner! */}
-        <div className="absolute top-[4.5rem] right-4 flex flex-col gap-2.5 pointer-events-auto">
+        <div className="absolute top-[4.5rem] right-4 flex flex-col gap-2 pointer-events-auto">
           {/* 1. Air Machine */}
-          <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-cyan-400/70 shadow-[0_0_15px_rgba(34,211,238,0.22)] flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/25 to-cyan-700/40 border border-cyan-400/50 flex items-center justify-center text-lg shadow-[0_0_8px_rgba(34,211,238,0.3)] flex-shrink-0">
-              🫁
+          <div className="hud-glass rounded-2xl p-2.5 w-[264px] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-400/35 flex items-center justify-center text-cyan-300 flex-shrink-0">
+              <AirLifeSupportIcon size={18} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               <div className="text-white text-xs font-semibold flex items-center justify-between">
                 <span className="flex items-center gap-1">
-                  <span>Air Machine</span>
+                  <span className="font-display tracking-tight">Air Machine</span>
                   <WhyButton term="air machine" />
                 </span>
                 <span className={`font-mono text-[11px] font-bold ${airTextColor}`}>
                   {Math.round(air)}%
                 </span>
               </div>
-              <div className="relative w-full h-2.5 bg-slate-800/80 rounded-full overflow-hidden border border-white/5 shadow-inner">
+              <div className="relative w-full h-2 bg-slate-900/90 rounded-full overflow-hidden border border-white/[0.07]">
                 <div
-                  className={`h-full rounded-full transition-all duration-300 ease-out ${airColor} shadow-[0_0_8px_rgba(34,211,238,0.5)]`}
+                  className={`h-full rounded-full transition-all duration-300 ease-out ${airColor}`}
                   style={{ width: `${Math.max(0, Math.min(100, air))}%` }}
                 />
               </div>
@@ -614,23 +674,23 @@ export default function HUD() {
           </div>
 
           {/* 2. Shield Strength Meter */}
-          <div className="bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border border-purple-500/70 shadow-[0_0_15px_rgba(168,85,247,0.22)] flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500/25 to-purple-700/40 border border-purple-400/50 flex items-center justify-center text-lg shadow-[0_0_8px_rgba(168,85,247,0.3)] flex-shrink-0">
-              🛡️
+          <div className="hud-glass rounded-2xl p-2.5 w-[264px] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center text-purple-300 flex-shrink-0">
+              <ShieldDefenseIcon size={18} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               <div className="text-white text-xs font-semibold flex items-center justify-between">
                 <span className="flex items-center gap-1">
-                  <span>Shield</span>
+                  <span className="font-display tracking-tight">Shield</span>
                   <WhyButton term="shield" />
                 </span>
                 <span className="font-mono text-[11px] font-bold text-purple-300">
                   {shieldToday}%
                 </span>
               </div>
-              <div className="relative w-full h-2.5 bg-slate-800/80 rounded-full overflow-hidden border border-white/5 shadow-inner">
+              <div className="relative w-full h-2 bg-slate-900/90 rounded-full overflow-hidden border border-white/[0.07]">
                 <div
-                  className="h-full rounded-full transition-all duration-300 ease-out bg-gradient-to-r from-purple-500 to-fuchsia-400 shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+                  className="h-full rounded-full transition-all duration-300 ease-out bg-gradient-to-r from-purple-500 to-fuchsia-400"
                   style={{ width: `${Math.max(0, Math.min(100, shieldToday))}%` }}
                 />
               </div>
@@ -638,25 +698,25 @@ export default function HUD() {
           </div>
 
           {/* 3. Crew Health Meter */}
-          <div className={`bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-black/95 backdrop-blur-md rounded-2xl p-2.5 w-64 border flex items-center gap-2.5 ${
-            crewHealth > 50
-              ? 'border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.22)]'
-              : 'border-red-500/80 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
-          }`}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500/25 to-rose-700/40 border border-rose-400/50 flex items-center justify-center text-lg shadow-[0_0_8px_rgba(244,63,94,0.3)] flex-shrink-0">
-              ❤️
+          <div
+            className={`hud-glass rounded-2xl p-2.5 w-[264px] flex items-center gap-3 ${
+              crewHealth <= 30 ? 'border-rose-500/60' : ''
+            }`}
+          >
+            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-400/35 flex items-center justify-center text-rose-300 flex-shrink-0">
+              <HeartPulseIcon size={18} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               <div className="text-white text-xs font-semibold flex items-center justify-between">
                 <span className="flex items-center gap-1">
-                  <span>Crew Health</span>
+                  <span className="font-display tracking-tight">Crew Health</span>
                   <WhyButton term="radiation" />
                 </span>
                 <span className={`font-mono text-[11px] font-bold ${healthTextColor}`}>
                   {Math.round(crewHealth)}%
                 </span>
               </div>
-              <div className="relative w-full h-2.5 bg-slate-800/80 rounded-full overflow-hidden border border-white/5 shadow-inner">
+              <div className="relative w-full h-2 bg-slate-900/90 rounded-full overflow-hidden border border-white/[0.07]">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ease-out ${healthColor}`}
                   style={{ width: `${Math.max(0, Math.min(100, crewHealth))}%` }}
@@ -671,52 +731,66 @@ export default function HUD() {
       {/* 3. DESKTOP INTERACTIVE SCAN PROMPT (Center-Bottom)            */}
       {/* ============================================================== */}
       {nearbySpot && dayPhase !== 'morning' && dayPhase !== 'ended' && !isPoweredOff && (
-        <div className="hidden sm:flex absolute bottom-24 left-1/2 -translate-x-1/2 flex-col items-center gap-2 pointer-events-auto animate-fade-in z-30">
+        <div className="hidden sm:flex absolute bottom-20 left-1/2 -translate-x-1/2 flex-col items-center gap-2 pointer-events-auto animate-fade-in z-30">
           {activeScan ? (
-            <div className="bg-black/85 backdrop-blur-md border-2 border-cyan-400 rounded-2xl px-6 py-3.5 shadow-2xl flex flex-col items-center min-w-[260px] text-center">
-              <div className="flex items-center gap-2 text-cyan-300 text-xs font-bold mb-1.5 animate-pulse">
-                <div className="w-3 h-3 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
-                <span>Scanning Discovery... {(activeScan.duration - activeScan.elapsed).toFixed(1)}s</span>
+            <div className="mission-panel border border-cyan-400/60 rounded-2xl px-6 py-4 flex flex-col items-center min-w-[280px] text-center shadow-[0_0_30px_rgba(34,211,238,0.25)]">
+              <div className="flex items-center gap-2 text-cyan-300 text-xs font-mono font-bold mb-2">
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+                <span>
+                  SPECTROMETER SCANNING · {(activeScan.duration - activeScan.elapsed).toFixed(1)}s
+                </span>
               </div>
 
-              <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-cyan-500/30">
+              <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-cyan-500/30">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-100"
+                  className="h-full bg-gradient-to-r from-cyan-400 to-sky-500 rounded-full transition-all duration-100"
                   style={{ width: `${scanProgressPercent}%` }}
                 />
               </div>
 
-              <span className="text-[10px] text-slate-300 mt-1.5 font-medium">
-                Stay still! Moving cancels scan.
+              <span className="text-[11px] text-slate-300 mt-2 font-medium">
+                Hold position — moving cancels surface analysis
               </span>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1.5">
               {scanError && (
-                <div className="bg-red-950/90 border border-red-500 text-red-200 text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-bounce">
-                  ⚠️ {scanError}
+                <div className="bg-rose-950/95 border border-rose-500 text-rose-200 text-xs font-bold px-3.5 py-1 rounded-full shadow-lg animate-bounce flex items-center gap-1.5">
+                  <AlertTriangleIcon size={13} />
+                  <span>{scanError}</span>
                 </div>
               )}
 
-              <div className="bg-gradient-to-b from-slate-900/95 to-black/95 backdrop-blur-md border border-amber-400/80 rounded-2xl p-2.5 shadow-2xl flex items-center gap-3">
+              <div className="mission-panel border border-amber-400/50 rounded-2xl p-2.5 flex items-center gap-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.75)]">
                 <button
                   type="button"
                   onClick={() => startScan()}
-                  className="min-h-[44px] px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:from-amber-600 active:to-orange-600 text-white font-extrabold text-sm rounded-xl shadow-lg cursor-pointer transition-all flex items-center gap-2"
+                  className="min-h-[44px] px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:from-amber-600 active:to-orange-600 text-white font-display font-bold text-sm rounded-xl shadow-[0_4px_16px_rgba(245,158,11,0.4)] cursor-pointer transition-all flex items-center gap-2"
                 >
-                  <span>🔬</span>
-                  <span>Scan {nearbySpot.type === 'rock' ? 'Rock' : nearbySpot.type === 'riverbed' ? 'Riverbed' : 'Ice'}</span>
-                  <span className="bg-black/30 px-1.5 py-0.5 rounded text-[11px] font-mono">
-                    -{nearbySpot.batteryCost} 🔋
+                  <ScannerReticleIcon size={17} />
+                  <span>
+                    Scan{' '}
+                    {nearbySpot.type === 'rock'
+                      ? 'Rock'
+                      : nearbySpot.type === 'riverbed'
+                      ? 'Riverbed'
+                      : 'Ice'}
+                  </span>
+                  <span className="bg-black/30 px-2 py-0.5 rounded-md text-[11px] font-mono">
+                    -{nearbySpot.batteryCost}⚡
                   </span>
                 </button>
 
-                <div className="flex flex-col text-left pr-2 text-xs text-slate-300">
-                  <span className="text-white font-bold">
+                <div className="flex flex-col text-left pr-2.5 text-xs text-slate-300">
+                  <span className="text-amber-300 font-mono font-bold">
                     +{nearbySpot.points} {nearbySpot.points === 1 ? 'Point' : 'Points'}
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    Press <kbd className="bg-slate-700 px-1 rounded text-white font-mono">SPACE</kbd> or tap button
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    Press{' '}
+                    <kbd className="bg-slate-800 border border-white/15 px-1.5 py-0.5 rounded text-white font-mono text-[10px]">
+                      SPACE
+                    </kbd>{' '}
+                    or click
                   </span>
                 </div>
               </div>
@@ -727,38 +801,40 @@ export default function HUD() {
 
       {/* Incoming Earth Transmission Modal */}
       {callEarthState === 'received' && callEarthMessage && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm pointer-events-auto animate-fade-in select-none overflow-y-auto">
-          <div className="bg-slate-900 border-2 border-sky-400 rounded-3xl max-w-md w-full p-5 sm:p-6 text-white shadow-2xl flex flex-col gap-3.5 my-auto max-h-[92dvh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400 flex items-center justify-center text-xl flex-shrink-0">
-                  📡
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-[#04060d]/80 backdrop-blur-md pointer-events-auto animate-fade-in select-none overflow-y-auto">
+          <div className="mission-panel border border-sky-400/50 rounded-[28px] max-w-md w-full p-5 sm:p-6 text-white flex flex-col gap-4 my-auto max-h-[92dvh] overflow-y-auto animate-modal-in">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-400/40 flex items-center justify-center text-sky-300 flex-shrink-0">
+                  <RadarDishIcon size={20} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400 block">
-                    NASA Mission Control
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-sky-400 block">
+                    NASA Deep Space Network
                   </span>
-                  <h3 className="font-bold text-sm sm:text-base text-slate-100">
-                    Incoming Transmission
+                  <h3 className="font-display font-bold text-base text-white">
+                    Incoming Earth Transmission
                   </h3>
                 </div>
               </div>
               <WhyButton term="comms delay" />
             </div>
 
-            <div className="bg-slate-950 rounded-2xl p-3.5 border border-slate-800 text-xs text-sky-200 leading-relaxed font-mono">
+            <div className="bg-slate-950/80 rounded-2xl p-4 border border-sky-500/20 text-xs text-sky-100 leading-relaxed font-mono">
               {callEarthMessage}
             </div>
 
-            <div className="text-[11px] text-slate-400 leading-snug">
-              <span className="text-slate-300 font-semibold">NASA Comms Note: </span>
-              Radio messages travel at light speed, but distance creates delay ({planet === 'mars' ? 'scaled from 4–24 min' : 'scaled from ~1.3s'}). By the time Earth responds, you may already be in the storm!
+            <div className="text-[11px] text-slate-400 leading-snug bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+              <span className="text-slate-200 font-semibold">Signal Latency Note: </span>
+              Radio waves travel at the speed of light, creating real planetary delay (
+              {planet === 'mars' ? 'scaled from 4–24 min' : 'scaled from ~1.3s'}). By the time
+              Earth replies, surface conditions may already have shifted!
             </div>
 
             <button
               type="button"
               onClick={dismissCallEarthReply}
-              className="w-full min-h-[44px] py-3 px-4 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs uppercase tracking-wider shadow-lg shadow-sky-950/50"
+              className="w-full min-h-[46px] py-3 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 active:from-sky-600 active:to-blue-700 text-white font-display font-bold rounded-xl transition-all cursor-pointer text-xs uppercase tracking-wider shadow-[0_8px_20px_-4px_rgba(14,165,233,0.45)]"
             >
               Acknowledge Transmission
             </button>
@@ -771,14 +847,22 @@ export default function HUD() {
         dayPhase !== 'ended' &&
         dayPhase !== 'morning' &&
         !isMissionComplete && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm pointer-events-auto select-none p-4 text-center overflow-y-auto">
-            <div className="max-w-sm w-full my-auto flex flex-col items-center">
-              <p className="text-white text-2xl sm:text-3xl font-bold mb-2 tracking-wide">
-                Rover out of power
-              </p>
-              <p className="text-gray-300 text-xs sm:text-sm max-w-sm mb-5">
-                The battery reached 0%. Wait for sunset rescue, or tow back to base now.
-              </p>
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#04060d]/85 backdrop-blur-md pointer-events-auto select-none p-4 text-center overflow-y-auto animate-fade-in">
+            <div className="mission-panel border border-rose-500/45 rounded-[28px] max-w-sm w-full p-6 sm:p-7 my-auto flex flex-col items-center gap-4 animate-modal-in">
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-400/40 flex items-center justify-center text-rose-400">
+                <BatteryBoltIcon size={28} />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-400 block mb-1">
+                  Emergency Power Depletion
+                </span>
+                <p className="font-display text-white text-2xl font-bold tracking-tight">
+                  Rover out of power
+                </p>
+                <p className="text-slate-300 text-xs sm:text-sm mt-2 leading-relaxed">
+                  The rover battery reached 0%. Wait for automatic sunset recovery, or request an immediate base tow now.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -786,9 +870,9 @@ export default function HUD() {
                   setIsPoweredOff(false)
                   window.dispatchEvent(new CustomEvent('reset-rover-to-base'))
                 }}
-                className="w-full sm:w-auto min-h-[48px] px-6 py-3.5 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-lg"
+                className="w-full min-h-[48px] px-6 py-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 active:from-orange-600 active:to-amber-600 text-white font-display font-bold rounded-xl transition-all cursor-pointer shadow-[0_8px_24px_-4px_rgba(249,115,22,0.5)] text-sm"
               >
-                Tow Rover to Base & Recharge
+                Tow Rover to Base &amp; Recharge
               </button>
             </div>
           </div>

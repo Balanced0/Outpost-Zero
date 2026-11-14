@@ -2,6 +2,11 @@ import { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import marsPhotosJson from '../data/marsPhotos.json'
 import { NASA_FACTS } from '../data/facts'
+import {
+  DatabaseScienceIcon,
+  RadarDishIcon,
+  RocketIcon,
+} from './icons/MissionIcons'
 
 interface MarsPhoto {
   file: string
@@ -53,7 +58,7 @@ export default function DataSourcesModal() {
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto animate-fade-in bg-black/85 backdrop-blur-md"
+      className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-auto select-none overflow-y-auto animate-fade-in bg-[#04060d]/85 backdrop-blur-md"
       style={{
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
@@ -61,19 +66,25 @@ export default function DataSourcesModal() {
         paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
       }}
     >
-      <div className="bg-slate-900 border-2 border-sky-500/70 rounded-3xl max-w-2xl w-full p-4 sm:p-7 text-white shadow-2xl flex flex-col gap-4 my-auto max-h-[92dvh] overflow-y-auto">
+      <div className="mission-panel border border-sky-400/40 rounded-[28px] max-w-2xl w-full p-4 sm:p-7 text-white flex flex-col gap-4 my-auto max-h-[92dvh] overflow-y-auto animate-modal-in relative">
+        {/* Top Accent Line */}
+        <div
+          className="absolute top-0 left-8 right-8 h-[2px] rounded-full bg-gradient-to-r from-transparent via-sky-400/80 to-transparent"
+          aria-hidden="true"
+        />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400 flex items-center justify-center text-xl flex-shrink-0">
-              🔬
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/40 flex items-center justify-center text-sky-300 flex-shrink-0">
+              <DatabaseScienceIcon size={22} />
             </div>
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400 block">
-                NASA Space Apps Challenge
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-sky-400 block">
+                NASA Space Apps Challenge · Provenance
               </span>
-              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-white">
-                Data Sources & Attribution
+              <h2 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight">
+                Data Sources &amp; Attribution
               </h2>
             </div>
           </div>
@@ -81,7 +92,7 @@ export default function DataSourcesModal() {
           <button
             type="button"
             onClick={() => setShowDataSourcesModal(false)}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-base cursor-pointer transition-colors active:scale-95"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-slate-300 hover:text-white flex items-center justify-center font-bold text-sm cursor-pointer transition-colors active:scale-95"
             title="Close (ESC)"
             aria-label="Close Data Sources"
           >
@@ -90,18 +101,19 @@ export default function DataSourcesModal() {
         </div>
 
         {/* 1. NASA DONKI Section */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-sky-300 flex items-center gap-1.5">
-              <span>📡</span> 1. NASA DONKI (Space Weather Database)
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h3 className="font-display font-bold text-sm text-sky-300 flex items-center gap-2">
+              <RadarDishIcon size={15} className="text-sky-400" />
+              <span>1. NASA DONKI (Space Weather Database)</span>
             </h3>
             <span
               className={`px-2.5 py-0.5 rounded-full border text-[10px] font-mono font-bold ${
                 spaceWeatherSource === 'live'
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
                   : spaceWeatherSource === 'saved'
-                  ? 'bg-blue-500/20 text-blue-300 border-blue-400/50'
-                  : 'bg-purple-500/20 text-purple-300 border-purple-400/50'
+                  ? 'bg-sky-500/15 text-sky-300 border-sky-400/40'
+                  : 'bg-purple-500/15 text-purple-300 border-purple-400/40'
               }`}
             >
               Status: {spaceWeatherSource.toUpperCase()}
@@ -112,7 +124,7 @@ export default function DataSourcesModal() {
             DONKI reports real past solar events. The game replays 20 real days as your mission.
           </p>
 
-          <div className="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800 text-[11px] font-mono flex flex-col gap-1 text-slate-300">
+          <div className="bg-slate-900/75 rounded-xl p-3 border border-white/[0.06] text-[11px] font-mono flex flex-col gap-1.5 text-slate-300">
             <div>
               <span className="text-slate-400">Date Window Used: </span>
               <span className="text-amber-300">{dateWindow}</span>
@@ -120,20 +132,25 @@ export default function DataSourcesModal() {
             <div>
               <span className="text-slate-400">Recorded Solar Observations: </span>
               <span className="text-slate-200">
-                {allRecordedEvents.length > 0 ? allRecordedEvents.join(' • ') : 'Calm solar activity recorded'}
+                {allRecordedEvents.length > 0
+                  ? allRecordedEvents.join(' • ')
+                  : 'Calm solar activity recorded'}
               </span>
             </div>
-            <div className="text-[10px] text-slate-400 mt-1">
-              Source API: <code className="text-sky-300">https://ccmc.gsfc.nasa.gov/DONKI-API/get</code> (NASA Space Weather Database Of Notifications, Knowledge, Information)
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              Source API:{' '}
+              <code className="text-sky-300">https://ccmc.gsfc.nasa.gov/DONKI-API/get</code> (NASA
+              Space Weather Database Of Notifications, Knowledge, Information)
             </div>
           </div>
         </div>
 
         {/* 2. NASA Photos Section */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-amber-300 flex items-center gap-1.5">
-              <span>📷</span> 2. NASA Martian Photography
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h3 className="font-display font-bold text-sm text-amber-300 flex items-center gap-2">
+              <span>📷</span>
+              <span>2. NASA Martian Photography</span>
             </h3>
             <span className="text-[10px] text-slate-400 italic">
               Colors may be adjusted by NASA scientists.
@@ -144,11 +161,11 @@ export default function DataSourcesModal() {
             All surface rock and ancient terrain discoveries feature real photographs captured by NASA rovers on Mars.
           </p>
 
-          <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
+          <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
             {photos.map((p) => (
               <div
                 key={p.file}
-                className="bg-slate-900/80 rounded-lg p-2 border border-slate-800 flex items-center justify-between gap-2"
+                className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] flex items-center justify-between gap-2"
               >
                 <div>
                   <div className="font-semibold text-slate-200">{p.title}</div>
@@ -158,7 +175,7 @@ export default function DataSourcesModal() {
                   href={p.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[10px] text-sky-400 hover:text-sky-300 underline font-mono flex-shrink-0"
+                  className="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 px-2.5 py-1 rounded-lg font-mono flex-shrink-0 transition-colors"
                 >
                   NASA JPL ↗
                 </a>
@@ -168,27 +185,28 @@ export default function DataSourcesModal() {
         </div>
 
         {/* 3. Science Facts ("Did you know?") Section */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-2">
-          <h3 className="font-bold text-sm text-emerald-300 flex items-center gap-1.5">
-            <span>🚀</span> 3. Science Facts ("Did you know?")
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-2.5">
+          <h3 className="font-display font-bold text-sm text-emerald-300 flex items-center gap-2">
+            <RocketIcon size={15} className="text-emerald-400" />
+            <span>3. Science Facts (&ldquo;Did you know?&rdquo;)</span>
           </h3>
 
-          <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
+          <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
             {NASA_FACTS.map((f, idx) => (
               <div
                 key={idx}
-                className="bg-slate-900/80 rounded-lg p-2 border border-slate-800 flex flex-col gap-0.5"
+                className="bg-slate-900/75 rounded-xl p-2.5 border border-white/[0.06] flex flex-col gap-1"
               >
-                <div className="text-slate-200 leading-snug">"{f.text}"</div>
-                <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono mt-0.5">
-                  <span className="text-slate-400 font-semibold">{f.sourceName}</span>
+                <div className="text-slate-200 leading-snug">&ldquo;{f.text}&rdquo;</div>
+                <div className="text-[10px] text-slate-400 flex items-center gap-1.5 font-mono">
+                  <span className="text-slate-300 font-semibold">{f.sourceName}</span>
                   <span>•</span>
                   {f.sourceUrl ? (
                     <a
                       href={f.sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sky-400 underline"
+                      className="text-sky-400 hover:text-sky-300 underline"
                     >
                       Source link ↗
                     </a>
@@ -202,72 +220,99 @@ export default function DataSourcesModal() {
         </div>
 
         {/* 4. Art and Sounds */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-1.5 text-xs text-slate-300">
-          <h3 className="font-bold text-sm text-purple-300 flex items-center gap-1.5">
-            <span>🎨</span> 4. Art & Visual Assets
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-1.5 text-xs text-slate-300">
+          <h3 className="font-display font-bold text-sm text-purple-300 flex items-center gap-2">
+            <span>🎨</span>
+            <span>4. Art &amp; Visual Assets</span>
           </h3>
-          <p leading-snug>
-            <strong className="text-white">Kenney (CC0):</strong> Terrain ground tiles, base structure building, and vehicle sprites from the <code className="text-amber-300">Sci-Fi RTS</code> and <code className="text-amber-300">Planets</code> asset packs (public domain).
+          <p className="leading-snug">
+            <strong className="text-white">Kenney (CC0):</strong> Terrain ground tiles, base structure building, and vehicle sprites from the{' '}
+            <code className="text-amber-300 font-mono">Sci-Fi RTS</code> and{' '}
+            <code className="text-amber-300 font-mono">Planets</code> asset packs (public domain).
           </p>
         </div>
 
         {/* 5. NASA Illustration (Menu) */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-1 text-xs text-slate-300">
-          <h3 className="font-bold text-sm text-orange-300 flex items-center gap-1.5">
-            <span>🖼️</span> 5. NASA Concept Illustration
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-1.5 text-xs text-slate-300">
+          <h3 className="font-display font-bold text-sm text-orange-300 flex items-center gap-2">
+            <span>🖼️</span>
+            <span>5. NASA Concept Illustration</span>
           </h3>
           <p className="leading-snug">
-            When available, the start menu displays a concept drawing credited as <strong className="text-white">"Illustration: NASA/JPL-Caltech"</strong>. It is an artist's drawing representing human exploration concepts.
+            When available, the start menu displays a concept drawing credited as{' '}
+            <strong className="text-white">&ldquo;Illustration: NASA/JPL-Caltech&rdquo;</strong>. It is an artist&apos;s drawing representing human exploration concepts.
           </p>
         </div>
 
         {/* 6. What is Simulated */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-2 text-xs">
-          <h3 className="font-bold text-sm text-amber-400 flex items-center gap-1.5">
-            <span>⚙️</span> 6. What is Simulated (Game Design Simplifications)
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-2 text-xs">
+          <h3 className="font-display font-bold text-sm text-amber-300 flex items-center gap-2">
+            <span>⚙️</span>
+            <span>6. What is Simulated (Game Design Simplifications)</span>
           </h3>
           <p className="text-slate-300 leading-snug">
             To make the mission fun, fast, and accessible for young players (ages 7–12), several complex engineering formulas were simplified into game design parameters:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px] font-mono">
-            <li><strong>Power budget:</strong> Fixed daily pool (100 or 90 points) divided between Air, Shield, and Rover.</li>
-            <li><strong>Battery mechanics:</strong> Fixed capacity and linear drain rates while driving.</li>
-            <li><strong>Air machine:</strong> Simplified daily drop (-16%) and linear solar refill (+0.47% per point).</li>
-            <li><strong>Radiation formula:</strong> Storm intensity minus shield strength multiplied by difficulty factor.</li>
-            <li><strong>Discovery spots:</strong> Procedurally placed rock, riverbed, and ice points across the map.</li>
-            <li><strong>Comms delay:</strong> Scaled down to 20 seconds for Mars (from 4–24 real minutes) and 2 seconds for the Moon (from 1.3s) for real-time web gameplay.</li>
+            <li>
+              <strong className="text-white">Power budget:</strong> Fixed daily pool (100 or 90 points) divided between Air, Shield, and Rover.
+            </li>
+            <li>
+              <strong className="text-white">Battery mechanics:</strong> Fixed capacity and linear drain rates while driving.
+            </li>
+            <li>
+              <strong className="text-white">Air machine:</strong> Simplified daily drop (-16%) and linear solar refill (+0.47% per point).
+            </li>
+            <li>
+              <strong className="text-white">Radiation formula:</strong> Storm intensity minus shield strength multiplied by difficulty factor.
+            </li>
+            <li>
+              <strong className="text-white">Discovery spots:</strong> Procedurally placed rock, riverbed, and ice points across the map.
+            </li>
+            <li>
+              <strong className="text-white">Comms delay:</strong> Scaled down to 20 seconds for Mars (from 4–24 real minutes) and 2 seconds for the Moon (from 1.3s) for real-time web gameplay.
+            </li>
           </ul>
         </div>
 
         {/* 7. How the Game Maps to Real Missions Table */}
-        <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col gap-2">
-          <h3 className="font-bold text-sm text-emerald-300 flex items-center gap-1.5">
-            <span>🗺️</span> 7. How the Game Maps to Real Space Missions
+        <div className="bg-slate-950/65 rounded-2xl p-4 border border-white/[0.08] flex flex-col gap-2.5">
+          <h3 className="font-display font-bold text-sm text-emerald-300 flex items-center gap-2">
+            <span>🗺️</span>
+            <span>7. How the Game Maps to Real Space Missions</span>
           </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border border-slate-800">
-              <thead className="bg-slate-900 text-slate-300 font-bold border-b border-slate-800">
+          <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-900/90 text-slate-300 font-mono text-[11px] uppercase border-b border-white/[0.07]">
                 <tr>
-                  <th className="p-2">Game Element</th>
-                  <th className="p-2">Real NASA Mission Reality</th>
+                  <th className="p-2.5">Game Element</th>
+                  <th className="p-2.5">Real NASA Mission Reality</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 text-slate-300 text-[11px]">
+              <tbody className="divide-y divide-white/[0.06] text-slate-300 text-[11px]">
                 <tr>
-                  <td className="p-2 font-semibold text-white">Shield Power</td>
-                  <td className="p-2">Radiation shielding to protect human astronauts from coronal mass ejections and solar energetic particles.</td>
+                  <td className="p-2.5 font-semibold text-white">Shield Power</td>
+                  <td className="p-2.5">
+                    Radiation shielding to protect human astronauts from coronal mass ejections and solar energetic particles.
+                  </td>
                 </tr>
                 <tr>
-                  <td className="p-2 font-semibold text-white">Comms Delay</td>
-                  <td className="p-2">Speed-of-light radio delay across planetary distances (Earth-to-Mars signal latency).</td>
+                  <td className="p-2.5 font-semibold text-white">Comms Delay</td>
+                  <td className="p-2.5">
+                    Speed-of-light radio delay across planetary distances (Earth-to-Mars signal latency).
+                  </td>
                 </tr>
                 <tr>
-                  <td className="p-2 font-semibold text-white">Rover Battery</td>
-                  <td className="p-2">Power storage limits and thermal operational envelopes on extraterrestrial rovers.</td>
+                  <td className="p-2.5 font-semibold text-white">Rover Battery</td>
+                  <td className="p-2.5">
+                    Power storage limits and thermal operational envelopes on extraterrestrial rovers.
+                  </td>
                 </tr>
                 <tr>
-                  <td className="p-2 font-semibold text-white">Space Weather</td>
-                  <td className="p-2">Real solar flares (FLR), geomagnetic storms (GST), and particle events (SEP) from NASA DONKI.</td>
+                  <td className="p-2.5 font-semibold text-white">Space Weather</td>
+                  <td className="p-2.5">
+                    Real solar flares (FLR), geomagnetic storms (GST), and particle events (SEP) from NASA DONKI.
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -275,11 +320,11 @@ export default function DataSourcesModal() {
         </div>
 
         {/* Close Button (Sticky Footer) */}
-        <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2.5 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-slate-800/80 mt-auto">
+        <div className="sticky bottom-0 bg-slate-950/90 backdrop-blur-xl pt-3 pb-1 -mx-4 px-4 sm:-mx-7 sm:px-7 border-t border-white/[0.08] mt-auto">
           <button
             type="button"
             onClick={() => setShowDataSourcesModal(false)}
-            className="w-full min-h-[48px] py-3.5 px-6 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold rounded-2xl transition-colors cursor-pointer text-sm shadow-lg shadow-sky-950/50 flex items-center justify-center active:scale-[0.99]"
+            className="w-full min-h-[48px] py-3.5 px-6 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 active:from-sky-600 active:to-blue-700 text-white font-display font-bold rounded-2xl transition-all cursor-pointer text-sm shadow-[0_8px_20px_-4px_rgba(14,165,233,0.45)] flex items-center justify-center active:scale-[0.99]"
           >
             Close Data Sources
           </button>
@@ -288,4 +333,3 @@ export default function DataSourcesModal() {
     </div>
   )
 }
-

@@ -1,4 +1,9 @@
 import { useGameStore } from '../store/gameStore'
+import {
+  AlertTriangleIcon,
+  ShieldDefenseIcon,
+  ZapBoltIcon,
+} from './icons/MissionIcons'
 
 export default function StormOverlay() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
@@ -16,50 +21,49 @@ export default function StormOverlay() {
     <>
       {/* 1. Countdown Warning Banner (10s before storm) */}
       {stormState === 'warning' && (
-        <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-pulse w-[92vw] max-w-sm flex justify-center">
-          <div className="bg-red-600/90 border-2 border-amber-300 text-white font-extrabold px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-2xl flex items-center justify-center gap-2.5 backdrop-blur-sm w-full text-center">
-            <span className="text-xl sm:text-2xl animate-spin flex-shrink-0">⚡</span>
-            <div className="flex flex-col items-center min-w-0">
-              <span className="text-xs sm:text-sm uppercase tracking-wider text-amber-200 font-bold truncate">
-                Solar Storm Warning!
+        <div className="fixed top-16 sm:top-40 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-[92vw] max-w-sm flex justify-center animate-fade-in">
+          <div className="bg-gradient-to-r from-rose-950/95 via-red-900/95 to-rose-950/95 border border-amber-400/70 text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-[0_0_30px_rgba(244,63,94,0.45)] flex items-center justify-between gap-3 backdrop-blur-md w-full">
+            <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-300/50 flex items-center justify-center text-amber-300 flex-shrink-0 animate-pulse">
+              <ZapBoltIcon size={18} />
+            </div>
+            <div className="flex flex-col items-center text-center min-w-0 flex-1">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-300 font-bold truncate">
+                Solar Storm Warning
               </span>
-              <span className="text-sm sm:text-base font-extrabold">
-                Radiation arrives in {stormCountdown}...
+              <span className="font-display text-sm sm:text-base font-bold text-white">
+                Radiation arrives in {stormCountdown}s
               </span>
             </div>
-            <span className="text-xl sm:text-2xl animate-spin flex-shrink-0">⚡</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-300/50 flex items-center justify-center text-amber-300 flex-shrink-0 animate-pulse">
+              <AlertTriangleIcon size={18} />
+            </div>
           </div>
         </div>
       )}
 
       {/* 2. Active Storm Visual & Proximity Status (15s duration) */}
       {stormState === 'active' && (
-        <>
-          {/* Storm atmosphere tint is rendered inside Phaser at depth 15 with camera zoom compensation */}
-
-          {/* Storm status banner with rover shelter status */}
-          <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-1.5 w-[92vw] max-w-sm">
-            <div className="bg-red-950/90 border-2 border-red-500 text-white px-4 py-2 rounded-2xl shadow-2xl flex items-center justify-center gap-2 backdrop-blur-md w-full text-center">
-              <span className="text-lg">🚨</span>
-              <span className="font-bold text-xs sm:text-sm tracking-wide">
-                {stormLevel === 'strong' ? 'Strong' : 'Minor'} Radiation Storm Active
-              </span>
-            </div>
-
-            {/* Rover Sheltered vs Exposed Indicator */}
-            {isRoverSheltered ? (
-              <div className="bg-emerald-600/90 border border-emerald-300 text-white font-bold text-xs px-3.5 py-1 rounded-full shadow-lg flex items-center gap-1.5">
-                <span>🛡️</span>
-                <span>Rover safe at base</span>
-              </div>
-            ) : (
-              <div className="bg-amber-600/95 border-2 border-amber-300 text-white font-extrabold text-xs px-4 py-1.5 rounded-full shadow-xl animate-bounce flex items-center gap-1.5">
-                <span>⚠️</span>
-                <span>Rover exposed! Drive home!</span>
-              </div>
-            )}
+        <div className="fixed top-16 sm:top-40 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-1.5 w-[92vw] max-w-sm animate-fade-in">
+          <div className="bg-rose-950/95 border border-rose-500/80 text-white px-4 py-2 rounded-2xl shadow-[0_0_28px_rgba(244,63,94,0.4)] flex items-center justify-center gap-2 backdrop-blur-md w-full text-center">
+            <AlertTriangleIcon size={16} className="text-rose-400 flex-shrink-0 animate-pulse" />
+            <span className="font-display font-bold text-xs sm:text-sm tracking-wide">
+              {stormLevel === 'strong' ? 'Strong' : 'Minor'} Radiation Storm Active
+            </span>
           </div>
-        </>
+
+          {/* Rover Sheltered vs Exposed Indicator */}
+          {isRoverSheltered ? (
+            <div className="bg-emerald-950/95 border border-emerald-400/60 text-emerald-200 font-mono font-bold text-xs px-3.5 py-1 rounded-full shadow-lg flex items-center gap-1.5 backdrop-blur-md">
+              <ShieldDefenseIcon size={14} className="text-emerald-400" />
+              <span>Rover safe inside base shield</span>
+            </div>
+          ) : (
+            <div className="bg-amber-600/95 border border-amber-300 text-white font-display font-bold text-xs px-4 py-1.5 rounded-full shadow-xl animate-bounce flex items-center gap-1.5">
+              <AlertTriangleIcon size={14} />
+              <span>Rover exposed! Drive home!</span>
+            </div>
+          )}
+        </div>
       )}
     </>
   )
