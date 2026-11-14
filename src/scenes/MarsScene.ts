@@ -8,8 +8,10 @@ import {
   BATTERY_DRAIN_DRIVING,
   BATTERY_RECHARGE_BASE,
   SCAN_PROXIMITY_RADIUS,
+  SUNSET_WARN_SEC,
 } from '../config/gameConfig'
 import { PLANETS } from '../config/planets'
+import { STORM_STRENGTHS } from '../config/balance'
 import { DiscoverySpot } from '../data/discoverySpots'
 
 const MAP_W = 4000
@@ -53,6 +55,52 @@ export default class MarsScene extends Phaser.Scene {
   private spotContainers: Map<string, Phaser.GameObjects.Container> = new Map()
   private scanGraphics!: Phaser.GameObjects.Graphics
 
+  // Darkness Overlay (depth 6: covers ground/rocks, sits under base/shield/rover)
+  private darknessOverlayGfx!: Phaser.GameObjects.Graphics
+
+  // Outpost Base & Shield Bubble
+  private baseContainer!: Phaser.GameObjects.Container
+  private baseLightsContainer!: Phaser.GameObjects.Container
+  private baseWindowsGfx!: Phaser.GameObjects.Graphics
+  private solarPanelsDimGfx!: Phaser.GameObjects.Graphics
+  private chargingBoltText!: Phaser.GameObjects.Text
+  private antennaLight!: Phaser.GameObjects.Arc
+
+  // Shield Bubble Visuals (depth 20: above darkness overlay)
+  private shieldContainer!: Phaser.GameObjects.Container
+  private shieldPulseContainer!: Phaser.GameObjects.Container
+  private shieldFillGfx!: Phaser.GameObjects.Graphics
+  private shieldRimGfx!: Phaser.GameObjects.Graphics
+  private shieldOuterGlowGfx!: Phaser.GameObjects.Graphics
+  private shieldDashedGfx!: Phaser.GameObjects.Graphics
+  private shieldRipplesGfx!: Phaser.GameObjects.Graphics
+  private shieldTween!: Phaser.Tweens.Tween
+  private shieldAlphaTween!: Phaser.Tweens.Tween
+
+  // Ripple Pool
+  private ripplePool: Phaser.GameObjects.Graphics[] = []
+  private activeRipples: {
+    gfx: Phaser.GameObjects.Graphics
+    elapsed: number
+    duration: number
+    maxAlpha: number
+    color: number
+  }[] = []
+  private rippleTimer: number = 0
+
+  // Shield Entrance/Exit Bounce & Rim Flash
+  private prevRoverSheltered: boolean | null = null
+  private shieldFlashColor: number = 0x22c55e
+  private shieldFlashAlpha: number = 0
+
+  // Shield Label Pill (depth 22: crisp, inverted zoom, no emoji)
+  private shieldLabelContainer!: Phaser.GameObjects.Container
+  private shieldLabelPillGfx!: Phaser.GameObjects.Graphics
+  private shieldLabelIconGfx!: Phaser.GameObjects.Graphics
+  private shieldLabelText!: Phaser.GameObjects.Text
+
+  private headlightGfx!: Phaser.GameObjects.Graphics
+
   constructor() {
     super('MarsScene')
   }
@@ -74,6 +122,11 @@ export default class MarsScene extends Phaser.Scene {
 
     // ---- 3. ROCKS (orange/brown for Mars; gray for Moon) ----
     this.scatterRocks(checkFailed)
+
+    // ---- 3B. DARKNESS OVERLAY (depth 15: covers ground/rocks/base body, sits under shield/windows/antenna) ----
+    this.darknessOverlayGfx = this.add.graphics()
+    this.darknessOverlayGfx.setDepth(15)
+    this.darknessOverlayGfx.setScrollFactor(0)
 
     // ---- 4. BASE ----
     this.placeBase(checkFailed)
@@ -534,35 +587,483 @@ export default class MarsScene extends Phaser.Scene {
     }
   }
 
-  private placeBase(checkFailed: (k: string) => boolean) {
-    if (!checkFailed('base')) {
-      const baseSprite = this.add.image(BASE_X, BASE_Y, 'base')
-      // 1.5x bigger than the original 1.0 scale
-      baseSprite.setScale(1.5)
-      baseSprite.setDepth(10)
-    } else {
-      // Fallback: drawn base
-      const gfx = this.add.graphics()
-      gfx.setDepth(10)
-      const r = 56
-      gfx.fillStyle(0x888888, 1)
-      gfx.lineStyle(4, 0xaaaaaa, 1)
-      const pts: Phaser.Types.Math.Vector2Like[] = []
-      for (let i = 0; i < 8; i++) {
-        const angle = (Math.PI / 4) * i - Math.PI / 8
-        pts.push({ x: BASE_X + r * Math.cos(angle), y: BASE_Y + r * Math.sin(angle) })
-      }
-      gfx.fillPoints(pts, true)
-      gfx.strokePoints(pts, true)
-      gfx.fillStyle(0x4488aa, 0.85)
-      gfx.fillCircle(BASE_X, BASE_Y, 28)
+  // ------------------------------------------------------------------ Base & Rover Textures
+
+  /**
+   * Generates a high-quality top-down habitat base texture once and caches it.
+   * Central dome + 2 connected pods + 2 solar arrays + landing pad with "H" marker + antenna + soft shadow.
+   */
+  private generateBaseTexture(isMoon: boolean): string {
+    const key = isMoon ? 'outpost_base_moon' : 'outpost_base_mars'
+    if (this.textures.exists(key)) return key
+
+    const canvas = document.createElement('canvas')
+    const W = 320
+    const H = 280
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    const cx = 160
+    const cy = 140
+
+    // 1. Soft Drop Shadow (offset away from sun towards +x, +y)
+    const shadowColor = isMoon ? 'rgba(0, 0, 0, 0.65)' : 'rgba(0, 0, 0, 0.32)'
+    const sox = 14
+    const soy = 16
+    ctx.fillStyle = shadowColor
+
+    // Landing pad shadow
+    ctx.beginPath()
+    ctx.arc(cx + sox, cy + soy, 48, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Central dome shadow
+    ctx.beginPath()
+    ctx.arc(cx + sox, cy - 52 + soy, 40, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Pod shadows
+    const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + w - r, y)
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+      ctx.lineTo(x + w, y + h - r)
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+      ctx.lineTo(x + r, y + h)
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
     }
 
-    // Subtle home-zone halo circle (safe distance boundary)
-    const halo = this.add.graphics()
-    halo.setDepth(3)
-    halo.lineStyle(2, 0x38bdf8, 0.35)
-    halo.strokeCircle(BASE_X, BASE_Y, BASE_SAFE_DISTANCE)
+    roundRect(cx - 72 + sox, cy - 52 - 15 + soy, 38, 30, 8)
+    ctx.fill()
+    roundRect(cx + 34 + sox, cy - 52 - 15 + soy, 38, 30, 8)
+    ctx.fill()
+
+    // Solar array shadows
+    roundRect(cx - 126 + sox, cy - 52 - 28 + soy, 40, 56, 4)
+    ctx.fill()
+    roundRect(cx + 86 + sox, cy - 52 - 28 + soy, 40, 56, 4)
+    ctx.fill()
+
+    // 2. Landing Pad (Centered at rover spawn point cx, cy)
+    // Outer metallic hazard ring
+    ctx.fillStyle = isMoon ? '#334155' : '#3f3833'
+    ctx.beginPath()
+    ctx.arc(cx, cy, 48, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.lineWidth = 3
+    ctx.strokeStyle = '#475569'
+    ctx.stroke()
+
+    // Inner landing circle
+    ctx.lineWidth = 2
+    ctx.strokeStyle = '#64748b'
+    ctx.beginPath()
+    ctx.arc(cx, cy, 34, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // "H" Marker in faint off-white
+    ctx.lineWidth = 3.5
+    ctx.strokeStyle = '#cbd5e1'
+    ctx.beginPath()
+    // Left vertical bar
+    ctx.moveTo(cx - 9, cy - 14)
+    ctx.lineTo(cx - 9, cy + 14)
+    // Right vertical bar
+    ctx.moveTo(cx + 9, cy - 14)
+    ctx.lineTo(cx + 9, cy + 14)
+    // Crossbar
+    ctx.moveTo(cx - 9, cy)
+    ctx.lineTo(cx + 9, cy)
+    ctx.stroke()
+
+    // 3. Airlock Tunnel Corridors
+    ctx.fillStyle = '#94a3b8'
+    ctx.strokeStyle = '#475569'
+    ctx.lineWidth = 2
+    // South tunnel connecting landing pad to central dome
+    ctx.fillRect(cx - 9, cy - 30, 18, 22)
+    ctx.strokeRect(cx - 9, cy - 30, 18, 22)
+    // West tunnel connecting dome to west pod
+    ctx.fillRect(cx - 40, cy - 58, 16, 12)
+    ctx.strokeRect(cx - 40, cy - 58, 16, 12)
+    // East tunnel connecting dome to east pod
+    ctx.fillRect(cx + 24, cy - 58, 16, 12)
+    ctx.strokeRect(cx + 24, cy - 58, 16, 12)
+
+    // 4. Habitat Pods (West and East)
+    const podFill = isMoon ? '#f8fafc' : '#f5ebe3'
+    ctx.fillStyle = podFill
+    ctx.strokeStyle = '#64748b'
+    ctx.lineWidth = 2.5
+    // West pod
+    roundRect(cx - 72, cy - 52 - 15, 38, 30, 8)
+    ctx.fill()
+    ctx.stroke()
+    // East pod
+    roundRect(cx + 34, cy - 52 - 15, 38, 30, 8)
+    ctx.fill()
+    ctx.stroke()
+
+    // 5. Central Dome (Top-down dome with specular highlight arc and metallic rim)
+    ctx.fillStyle = podFill
+    ctx.beginPath()
+    ctx.arc(cx, cy - 52, 40, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.lineWidth = 3
+    ctx.strokeStyle = '#64748b'
+    ctx.stroke()
+
+    // Dome specular reflection highlight (sun side: upper-left)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
+    ctx.beginPath()
+    ctx.ellipse(cx - 10, cy - 62, 20, 12, -Math.PI / 6, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Central cupola / hatch ring
+    ctx.fillStyle = '#475569'
+    ctx.beginPath()
+    ctx.arc(cx, cy - 52, 9, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#64748b'
+    ctx.beginPath()
+    ctx.arc(cx, cy - 52, 5, 0, Math.PI * 2)
+    ctx.fill()
+
+    // 6. Solar Panel Arrays (West and East wings)
+    // Struts
+    ctx.fillStyle = '#475569'
+    ctx.fillRect(cx - 86, cy - 54, 14, 4)
+    ctx.fillRect(cx + 72, cy - 54, 14, 4)
+
+    const drawSolarPanel = (px: number, py: number) => {
+      // Dark navy base
+      ctx.fillStyle = '#172554'
+      roundRect(px, py, 40, 56, 4)
+      ctx.fill()
+      ctx.lineWidth = 2
+      ctx.strokeStyle = '#3b82f6'
+      ctx.stroke()
+
+      // Thin cyan grid lines
+      ctx.strokeStyle = '#60a5fa'
+      ctx.lineWidth = 1.2
+      // 3 Vertical lines
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath()
+        ctx.moveTo(px + i * 10, py + 2)
+        ctx.lineTo(px + i * 10, py + 54)
+        ctx.stroke()
+      }
+      // 4 Horizontal lines
+      for (let j = 1; j <= 4; j++) {
+        ctx.beginPath()
+        ctx.moveTo(px + 2, py + j * 11)
+        ctx.lineTo(px + 38, py + j * 11)
+        ctx.stroke()
+      }
+    }
+
+    drawSolarPanel(cx - 126, cy - 52 - 28)
+    drawSolarPanel(cx + 86, cy - 52 - 28)
+
+    // 7. Antenna Tower & Radar Dish
+    ctx.strokeStyle = '#475569'
+    ctx.lineWidth = 2.5
+    ctx.beginPath()
+    ctx.moveTo(cx + 26, cy - 72)
+    ctx.lineTo(cx + 26, cy - 96)
+    ctx.stroke()
+    // Small dish
+    ctx.beginPath()
+    ctx.arc(cx + 24, cy - 84, 6, -Math.PI / 2, Math.PI / 2)
+    ctx.stroke()
+
+    this.textures.addCanvas(key, canvas)
+    return key
+  }
+
+  /**
+   * Generates a 1.5x bigger high-detail rover texture:
+   * 4 rugged wheels with hubcaps, scientific chassis, solar rear deck, instrument pod, camera turret, headlights.
+   */
+  private generateRoverTexture(): string {
+    const key = 'pro_rover'
+    if (this.textures.exists(key)) return key
+
+    const canvas = document.createElement('canvas')
+    const W = 84
+    const H = 56
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + w - r, y)
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+      ctx.lineTo(x + w, y + h - r)
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+      ctx.lineTo(x + r, y + h)
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
+    }
+
+    // 1. 4 Rugged Wheels (Charcoal with treads & hubcaps)
+    const drawWheel = (wx: number, wy: number) => {
+      ctx.fillStyle = '#1e293b'
+      roundRect(wx, wy, 20, 11, 3)
+      ctx.fill()
+      ctx.lineWidth = 1.5
+      ctx.strokeStyle = '#64748b'
+      ctx.stroke()
+
+      // Tread notches
+      ctx.strokeStyle = '#334155'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(wx + 6, wy)
+      ctx.lineTo(wx + 6, wy + 11)
+      ctx.moveTo(wx + 10, wy)
+      ctx.lineTo(wx + 10, wy + 11)
+      ctx.moveTo(wx + 14, wy)
+      ctx.lineTo(wx + 14, wy + 11)
+      ctx.stroke()
+
+      // Center hub
+      ctx.fillStyle = '#94a3b8'
+      ctx.beginPath()
+      ctx.arc(wx + 10, wy + 5.5, 2.5, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    drawWheel(8, 2)
+    drawWheel(56, 2)
+    drawWheel(8, 43)
+    drawWheel(56, 43)
+
+    // Wheel axles
+    ctx.fillStyle = '#475569'
+    ctx.fillRect(18, 7, 48, 4)
+    ctx.fillRect(18, 45, 48, 4)
+
+    // 2. Chassis / Main Scientific Body
+    ctx.fillStyle = '#f1f5f9'
+    roundRect(14, 10, 56, 36, 9)
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = '#64748b'
+    ctx.stroke()
+
+    // Solar array on rear deck
+    ctx.fillStyle = '#0f172a'
+    roundRect(18, 14, 22, 28, 4)
+    ctx.fill()
+    ctx.lineWidth = 1
+    ctx.strokeStyle = '#0284c7'
+    ctx.stroke()
+    // Thin cyan solar lines
+    ctx.strokeStyle = '#38bdf8'
+    ctx.beginPath()
+    ctx.moveTo(25, 14)
+    ctx.lineTo(25, 42)
+    ctx.moveTo(32, 14)
+    ctx.lineTo(32, 42)
+    ctx.moveTo(18, 28)
+    ctx.lineTo(40, 28)
+    ctx.stroke()
+
+    // Science instrument pod (center)
+    ctx.fillStyle = '#0284c7'
+    roundRect(43, 16, 14, 24, 3)
+    ctx.fill()
+    // Instrument LEDs
+    ctx.fillStyle = '#4ade80'
+    ctx.beginPath()
+    ctx.arc(47, 21, 1.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#38bdf8'
+    ctx.beginPath()
+    ctx.arc(47, 28, 1.5, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Camera mast / sensor turret (front)
+    ctx.fillStyle = '#334155'
+    roundRect(60, 22, 12, 12, 4)
+    ctx.fill()
+    // Front camera lens with specular dot
+    ctx.fillStyle = '#06b6d4'
+    ctx.beginPath()
+    ctx.arc(70, 28, 4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(69, 27, 1.2, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Twin front headlight lamps
+    ctx.fillStyle = '#fef08a'
+    ctx.beginPath()
+    ctx.arc(68, 17, 3.5, 0, Math.PI * 2)
+    ctx.arc(68, 39, 3.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#eab308'
+    ctx.lineWidth = 1
+    ctx.stroke()
+
+    this.textures.addCanvas(key, canvas)
+    return key
+  }
+
+  private placeBase(_checkFailed: (k: string) => boolean) {
+    const isMoon = useGameStore.getState().planet === 'moon'
+    const baseTexKey = this.generateBaseTexture(isMoon)
+
+    // 1. Base Habitat Outpost Container (depth 10, sits under darkness)
+    this.baseContainer = this.add.container(BASE_X, BASE_Y)
+    this.baseContainer.setDepth(10)
+
+    // Static pre-rendered base sprite (centered so landing pad sits right at 0, 0)
+    const baseSprite = this.add.image(0, 0, baseTexKey)
+    this.baseContainer.add(baseSprite)
+
+    // Solar panels dimming overlay
+    this.solarPanelsDimGfx = this.add.graphics()
+    this.baseContainer.add(this.solarPanelsDimGfx)
+
+    // Pulsing charging bolt text (floats above landing pad when rover is charging)
+    this.chargingBoltText = this.add.text(0, -6, '⚡', {
+      fontSize: '26px',
+    })
+    this.chargingBoltText.setOrigin(0.5, 0.5)
+    this.chargingBoltText.setVisible(false)
+    this.baseContainer.add(this.chargingBoltText)
+    this.tweens.add({
+      targets: this.chargingBoltText,
+      scale: { from: 0.9, to: 1.3 },
+      alpha: { from: 0.6, to: 1.0 },
+      yoyo: true,
+      repeat: -1,
+      duration: 600,
+      ease: 'Sine.easeInOut',
+    })
+
+    // 1B. Base Lights Container (depth 21: ABOVE darkness overlay at depth 15)
+    this.baseLightsContainer = this.add.container(BASE_X, BASE_Y)
+    this.baseLightsContainer.setDepth(21)
+
+    // Dynamic windows on dome and pods
+    this.baseWindowsGfx = this.add.graphics()
+    this.baseLightsContainer.add(this.baseWindowsGfx)
+
+    // Blinking antenna beacon light on antenna tower tip (at x: 26, y: -96)
+    const beaconCol = isMoon ? 0x38bdf8 : 0xef4444
+    this.antennaLight = this.add.circle(26, -96, 3.5, beaconCol, 1)
+    this.baseLightsContainer.add(this.antennaLight)
+    this.tweens.add({
+      targets: this.antennaLight,
+      alpha: { from: 0.2, to: 1.0 },
+      yoyo: true,
+      repeat: -1,
+      duration: 850,
+      ease: 'Sine.easeInOut',
+    })
+
+    // 2. Shield Bubble Container (depth 20: ABOVE darkness overlay)
+    this.shieldContainer = this.add.container(BASE_X, BASE_Y)
+    this.shieldContainer.setDepth(20)
+
+    // Pulse Container inside shieldContainer: handles continuous 1.0 to 1.05 breathing loop
+    this.shieldPulseContainer = this.add.container(0, 0)
+    this.shieldContainer.add(this.shieldPulseContainer)
+
+    this.shieldFillGfx = this.add.graphics()
+    this.shieldPulseContainer.add(this.shieldFillGfx)
+
+    this.shieldOuterGlowGfx = this.add.graphics()
+    this.shieldOuterGlowGfx.setBlendMode(Phaser.BlendModes.ADD)
+    this.shieldPulseContainer.add(this.shieldOuterGlowGfx)
+
+    this.shieldRimGfx = this.add.graphics()
+    this.shieldRimGfx.setBlendMode(Phaser.BlendModes.ADD)
+    this.shieldPulseContainer.add(this.shieldRimGfx)
+
+    this.shieldDashedGfx = this.add.graphics()
+    this.shieldDashedGfx.setBlendMode(Phaser.BlendModes.ADD)
+    this.shieldPulseContainer.add(this.shieldDashedGfx)
+
+    this.shieldRipplesGfx = this.add.graphics()
+    this.shieldRipplesGfx.setBlendMode(Phaser.BlendModes.ADD)
+    this.shieldPulseContainer.add(this.shieldRipplesGfx)
+
+    // Pre-allocated Ripple Pool (6 Graphics)
+    this.ripplePool = []
+    this.activeRipples = []
+    for (let i = 0; i < 6; i++) {
+      const rip = this.add.graphics()
+      rip.setBlendMode(Phaser.BlendModes.ADD)
+      rip.setVisible(false)
+      this.shieldPulseContainer.add(rip)
+      this.ripplePool.push(rip)
+    }
+
+    // Check prefers-reduced-motion
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const pulseDuration = prefersReducedMotion ? 2000 : 800 // 4s loop vs 1.6s loop
+
+    // Breathing pulse tween: scale 1.0 to 1.05
+    this.shieldTween = this.tweens.add({
+      targets: this.shieldPulseContainer,
+      scaleX: 1.05,
+      scaleY: 1.05,
+      yoyo: true,
+      repeat: -1,
+      duration: pulseDuration,
+      ease: 'Sine.easeInOut',
+    })
+
+    // Glow alpha breathing tween: alpha 1.0 to 0.5
+    this.shieldAlphaTween = this.tweens.add({
+      targets: [this.shieldOuterGlowGfx, this.shieldRimGfx],
+      alpha: { from: 1.0, to: 0.5 },
+      yoyo: true,
+      repeat: -1,
+      duration: pulseDuration,
+      ease: 'Sine.easeInOut',
+    })
+
+    // 3. Shield Label Container (depth 22: crisp, inverted zoom, no emoji)
+    this.shieldLabelContainer = this.add.container(BASE_X, BASE_Y - BASE_SAFE_DISTANCE - 26)
+    this.shieldLabelContainer.setDepth(22)
+
+    this.shieldLabelPillGfx = this.add.graphics()
+    this.shieldLabelContainer.add(this.shieldLabelPillGfx)
+
+    this.shieldLabelIconGfx = this.add.graphics()
+    this.shieldLabelContainer.add(this.shieldLabelIconGfx)
+
+    this.shieldLabelText = this.add.text(0, 0, '', {
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      fontSize: '20px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#020617',
+      strokeThickness: 3,
+    })
+    this.shieldLabelText.setOrigin(0, 0.5)
+    this.shieldLabelText.setResolution(Math.max(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 2))
+    this.shieldLabelContainer.add(this.shieldLabelText)
   }
 
   // ------------------------------------------------------------------ Discovery Spots
@@ -683,39 +1184,54 @@ export default class MarsScene extends Phaser.Scene {
     })
   }
 
-  private createRover(checkFailed: (k: string) => boolean) {
-    // Shadow ellipse drawn below rover — sharper on Moon (no atmosphere to soften)
+  private createRover(_checkFailed: (k: string) => boolean) {
     const isMoon = useGameStore.getState().planet === 'moon'
     const shadowAlpha = isMoon ? 0.70 : 0.35
-    this.roverShadow = this.add.ellipse(BASE_X, BASE_Y + 10, 72, 24, 0x000000, shadowAlpha)
+
+    // 1. Shadow ellipse drawn below rover — sharper on Moon, proportional to 1.5x bigger rover
+    this.roverShadow = this.add.ellipse(BASE_X, BASE_Y + 12, 92, 32, 0x000000, shadowAlpha)
     this.roverShadow.setDepth(11)
 
-    if (!checkFailed('rover')) {
-      this.rover = this.physics.add.image(BASE_X, BASE_Y, 'rover')
-      // 1.5× bigger than the original 0.85 scale
-      this.rover.setScale(1.3)
-    } else {
-      // Fallback drawn rover
-      const rCanvas = this.make.graphics()
-      rCanvas.setVisible(false)
-      rCanvas.fillStyle(0xdddddd, 1)
-      rCanvas.fillRoundedRect(0, 0, 54, 36, 7)
-      rCanvas.fillStyle(0x333333, 1)
-      rCanvas.fillRect(4, -4, 11, 9)
-      rCanvas.fillRect(39, -4, 11, 9)
-      rCanvas.fillRect(4, 31, 11, 9)
-      rCanvas.fillRect(39, 31, 11, 9)
-      rCanvas.fillStyle(0x38bdf8, 1)
-      rCanvas.fillCircle(40, 18, 7)
-      rCanvas.generateTexture('fallback_rover', 58, 40)
+    // 2. Headlight cone beam graphics (drawn at depth 16 with ADD blend mode, cuts through darkness at sunset/night)
+    this.headlightGfx = this.add.graphics()
+    this.headlightGfx.setDepth(16)
+    this.headlightGfx.setBlendMode(Phaser.BlendModes.ADD)
+    this.drawHeadlightCone()
+    this.headlightGfx.setVisible(false)
 
-      this.rover = this.physics.add.image(BASE_X, BASE_Y, 'fallback_rover')
-    }
-
+    // 3. Upgraded scientific rover sprite (1.5x bigger, 4 wheels, camera turret, scientific chassis)
+    const roverKey = this.generateRoverTexture()
+    this.rover = this.physics.add.image(BASE_X, BASE_Y, roverKey)
     this.rover.setDepth(12)
     this.roverBody = this.rover.body as Phaser.Physics.Arcade.Body
     this.roverBody.setCollideWorldBounds(true)
-    this.roverBody.setSize(40, 40)
+    this.roverBody.setSize(54, 38)
+  }
+
+  /**
+   * Draws a warm forward headlight cone beam extending ~150px in front of the rover.
+   */
+  private drawHeadlightCone() {
+    this.headlightGfx.clear()
+    // Soft outer cone
+    this.headlightGfx.fillStyle(0xfffee0, 0.16)
+    this.headlightGfx.beginPath()
+    this.headlightGfx.moveTo(34, -6)
+    this.headlightGfx.lineTo(150, -48)
+    this.headlightGfx.lineTo(150, 48)
+    this.headlightGfx.lineTo(34, 6)
+    this.headlightGfx.closePath()
+    this.headlightGfx.fillPath()
+
+    // Bright inner core
+    this.headlightGfx.fillStyle(0xffffff, 0.28)
+    this.headlightGfx.beginPath()
+    this.headlightGfx.moveTo(34, -3)
+    this.headlightGfx.lineTo(100, -22)
+    this.headlightGfx.lineTo(100, 22)
+    this.headlightGfx.lineTo(34, 3)
+    this.headlightGfx.closePath()
+    this.headlightGfx.fillPath()
   }
 
   private createDustParticles() {
@@ -774,11 +1290,41 @@ export default class MarsScene extends Phaser.Scene {
       this.roverShadow.setPosition(this.rover.x, this.rover.y + 12)
     }
 
+    // Update rover headlight beam position & rotation (visible at sunset/night)
+    if (this.headlightGfx && this.rover) {
+      this.headlightGfx.setPosition(this.rover.x, this.rover.y)
+      this.headlightGfx.setRotation(this.rover.rotation)
+      const isNight = store.timeLeft <= SUNSET_WARN_SEC || store.dayPhase === 'ended'
+      this.headlightGfx.setVisible(isNight)
+    }
+
+    // Update darkness overlay (depth 15: covers ground, rocks, rover, base body)
+    if (this.darknessOverlayGfx) {
+      this.darknessOverlayGfx.clear()
+      const isNight = store.timeLeft <= SUNSET_WARN_SEC || store.dayPhase === 'ended'
+      if (isNight) {
+        const progress =
+          store.dayPhase === 'ended'
+            ? 1
+            : Math.max(0, Math.min(1, (SUNSET_WARN_SEC - store.timeLeft) / SUNSET_WARN_SEC))
+        const isMars = store.planet === 'mars'
+        const nightOpacity = progress * (isMars ? 0.8 : 0.88)
+        const darkColor = isMars ? 0x060b1c : 0x000000
+        const cam = this.cameras.main
+        this.darknessOverlayGfx.fillStyle(darkColor, nightOpacity)
+        this.darknessOverlayGfx.fillRect(0, 0, cam.width, cam.height)
+      }
+    }
+
+    const distToBase = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, BASE_X, BASE_Y)
+
     if (isPoweredOff || isControlsLocked || dayPhase === 'ended' || dayPhase === 'morning') {
       this.roverBody.setVelocity(0, 0)
       if (this.dustEmitter && this.dustEmitter.emitting) this.dustEmitter.stop()
       store.setIsDriving(false)
       store.setRoverPos(this.rover.x, this.rover.y)
+      this.updateBaseVisuals(store, distToBase, false)
+      this.updateShieldBubble(dt, distToBase, store, _time)
       return
     }
 
@@ -847,6 +1393,9 @@ export default class MarsScene extends Phaser.Scene {
     store.setIsDriving(driving)
 
     const dist = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, BASE_X, BASE_Y)
+    this.updateBaseVisuals(store, dist, driving)
+    this.updateShieldBubble(dt, dist, store, _time)
+
     let battery = store.battery
 
     if (driving) {
@@ -918,5 +1467,330 @@ export default class MarsScene extends Phaser.Scene {
     const pingAlpha = (1 - pingProgress) * 0.5
     this.scanGraphics.lineStyle(2, 0x38bdf8, pingAlpha)
     this.scanGraphics.strokeCircle(rx, ry, pingRadius)
+  }
+
+  /**
+   * Updates Habitat Outpost dynamic features:
+   * - Windows glow warm yellow/amber at sunset/night, dim during day.
+   * - Solar panels dim when dark.
+   * - Pulsing green bolt floats above pad when rover is parked and charging.
+   */
+  private updateBaseVisuals(store: any, dist: number, driving: boolean) {
+    if (!this.baseContainer) return
+
+    const isNight = store.timeLeft <= SUNSET_WARN_SEC || store.dayPhase === 'ended'
+    const isCharging =
+      dist <= BASE_SAFE_DISTANCE &&
+      !driving &&
+      !store.isPoweredOff &&
+      store.battery < store.batteryCapacity
+
+    // 1. Windows on dome & pods
+    if (this.baseWindowsGfx) {
+      this.baseWindowsGfx.clear()
+      if (isNight) {
+        // Outer amber glow
+        this.baseWindowsGfx.fillStyle(0xf59e0b, 0.45)
+        this.baseWindowsGfx.fillCircle(0, -52, 9)
+        this.baseWindowsGfx.fillRoundedRect(-60, -43, 14, 8, 2)
+        this.baseWindowsGfx.fillRoundedRect(46, -43, 14, 8, 2)
+        // Core bright warm yellow
+        this.baseWindowsGfx.fillStyle(0xfef08a, 0.95)
+        this.baseWindowsGfx.fillCircle(0, -52, 6)
+        this.baseWindowsGfx.fillRoundedRect(-58, -41, 10, 5, 2)
+        this.baseWindowsGfx.fillRoundedRect(48, -41, 10, 5, 2)
+      } else {
+        // Dim daytime glass
+        this.baseWindowsGfx.fillStyle(0x1e293b, 0.85)
+        this.baseWindowsGfx.fillCircle(0, -52, 6)
+        this.baseWindowsGfx.fillRoundedRect(-58, -41, 10, 5, 2)
+        this.baseWindowsGfx.fillRoundedRect(48, -41, 10, 5, 2)
+      }
+    }
+
+    // 2. Solar panels dimming at night / low light
+    if (this.solarPanelsDimGfx) {
+      this.solarPanelsDimGfx.clear()
+      if (isNight) {
+        this.solarPanelsDimGfx.fillStyle(0x000000, 0.65)
+        this.solarPanelsDimGfx.fillRoundedRect(-126, -52 - 28, 40, 56, 4)
+        this.solarPanelsDimGfx.fillRoundedRect(86, -52 - 28, 40, 56, 4)
+      }
+    }
+
+    // 3. Charging green bolt indicator
+    if (this.chargingBoltText) {
+      this.chargingBoltText.setVisible(isCharging)
+    }
+  }
+
+  /**
+   * Updates 150m Shield Bubble:
+   * - Depth 20 & ADD blend mode so it glows brightly at night (+40% glow boost).
+   * - Breathing pulse (1.0 to 1.05) & expanding ripple pool every 1.5s - 3.0s.
+   * - Fast pulsing during storm countdown warning (2.2x speed).
+   * - 300ms bounce & green/orange rim flash on entering/leaving shelter boundary.
+   * - Crisp vector pill label at depth 22, inverted camera zoom, clamped inside screen view.
+   */
+  private updateShieldBubble(dt: number, dist: number, store: any, time: number) {
+    if (!this.shieldContainer) return
+
+    const shieldStrength = store.shieldToday ?? 100
+    const isInside = dist <= BASE_SAFE_DISTANCE
+    const stormState = store.stormState // 'idle' | 'warning' | 'active'
+    const stormLevel = (store.stormLevelToday || 'none') as 'none' | 'minor' | 'strong'
+    const stormPower = STORM_STRENGTHS[stormLevel] || 0
+    const isStormActive = stormState === 'active'
+    const shieldWeaker = isStormActive && shieldStrength < stormPower
+    const isNight = store.timeLeft <= SUNSET_WARN_SEC || store.dayPhase === 'ended'
+    const nightBoost = isNight ? 1.4 : 1.0
+
+    // 1. Storm Countdown Speedup (2.2x pulse)
+    const speedMult = stormState === 'warning' ? 2.2 : 1.0
+    if (this.shieldTween) {
+      this.shieldTween.setTimeScale(speedMult)
+    }
+    if (this.shieldAlphaTween) {
+      this.shieldAlphaTween.setTimeScale(speedMult)
+    }
+
+    // 2. Boundary Transition Bounce (scale to 1.12 over 300ms) & Rim Flash
+    if (this.prevRoverSheltered !== null && isInside !== this.prevRoverSheltered) {
+      const isEntering = isInside
+      this.shieldFlashColor = isEntering ? 0x22c55e : 0xf97316
+      this.shieldFlashAlpha = 1.0
+
+      // Quick 300ms bounce on shieldContainer (yoyo 150ms + 150ms)
+      this.tweens.killTweensOf(this.shieldContainer)
+      this.tweens.add({
+        targets: this.shieldContainer,
+        scaleX: { from: 1.0, to: 1.12 },
+        scaleY: { from: 1.0, to: 1.12 },
+        yoyo: true,
+        duration: 150,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          this.shieldContainer.setScale(1.0, 1.0)
+        },
+      })
+    }
+    this.prevRoverSheltered = isInside
+
+    if (this.shieldFlashAlpha > 0) {
+      this.shieldFlashAlpha = Math.max(0, this.shieldFlashAlpha - dt * 3.2)
+    }
+
+    // 3. Rotate dashed rim outline
+    if (this.shieldDashedGfx) {
+      this.shieldDashedGfx.angle += dt * 14
+    }
+
+    // 4. Resolve Bubble Colors and Opacities
+    let baseColor = 0x38bdf8 // cyan-blue default
+    let statusText = `Shield ${shieldStrength}%`
+    let textColor = '#38bdf8'
+    let borderColor = 0x38bdf8
+
+    if (isStormActive) {
+      if (shieldWeaker) {
+        baseColor = 0xef4444 // red/orange if storm overpowers shield
+        borderColor = 0xef4444
+        textColor = '#f87171'
+      } else {
+        baseColor = 0x38bdf8
+        borderColor = 0x38bdf8
+        textColor = '#38bdf8'
+      }
+      if (!isInside) {
+        statusText = `EXPOSED! · Shield ${shieldStrength}%`
+        borderColor = 0xef4444
+        textColor = '#f87171'
+      } else {
+        statusText = `SAFE · Shield ${shieldStrength}%`
+        borderColor = 0x22c55e
+        textColor = '#4ade80'
+      }
+    } else if (isInside) {
+      baseColor = 0x22c55e // green when rover inside
+      borderColor = 0x22c55e
+      textColor = '#4ade80'
+      statusText = `SAFE · Shield ${shieldStrength}%`
+    }
+
+    const strengthRatio = Math.max(0, Math.min(100, shieldStrength)) / 100
+    const fillAlpha = Math.max(0.015, 0.08 * strengthRatio) * nightBoost
+    const rimAlpha = Math.min(1.0, (shieldStrength === 0 ? 0.18 : 0.38 + 0.62 * strengthRatio) * nightBoost)
+    const outerAlpha = Math.min(0.8, rimAlpha * 0.45)
+
+    // Active storm flicker jitter
+    const jitter = isStormActive
+      ? shieldWeaker
+        ? 0.75 + Math.random() * 0.45
+        : 0.9 + Math.random() * 0.2
+      : 1.0
+
+    // Redraw Fill
+    this.shieldFillGfx.clear()
+    this.shieldFillGfx.fillStyle(baseColor, Math.min(0.25, fillAlpha * jitter))
+    this.shieldFillGfx.fillCircle(0, 0, BASE_SAFE_DISTANCE)
+
+    // Redraw Rim & Outer Glow (ADD blend mode)
+    this.shieldOuterGlowGfx.clear()
+    this.shieldOuterGlowGfx.lineStyle(8, baseColor, outerAlpha * jitter)
+    this.shieldOuterGlowGfx.strokeCircle(0, 0, BASE_SAFE_DISTANCE + 2)
+
+    this.shieldRimGfx.clear()
+    const rimThickness = shieldStrength === 0 ? 1.5 : Math.max(2, 2 + strengthRatio * 2.5)
+    this.shieldRimGfx.lineStyle(rimThickness, baseColor, Math.min(1.0, rimAlpha * jitter))
+    this.shieldRimGfx.strokeCircle(0, 0, BASE_SAFE_DISTANCE)
+
+    // Rim flash on enter/exit
+    if (this.shieldFlashAlpha > 0) {
+      this.shieldRimGfx.lineStyle(5, this.shieldFlashColor, this.shieldFlashAlpha * 0.9)
+      this.shieldRimGfx.strokeCircle(0, 0, BASE_SAFE_DISTANCE)
+    }
+
+    // Redraw Dashed Rim
+    this.shieldDashedGfx.clear()
+    const dashCount = 28
+    const dashAngle = (Math.PI * 2) / dashCount
+    this.shieldDashedGfx.lineStyle(1.8, baseColor, rimAlpha * 0.65 * jitter)
+    for (let i = 0; i < dashCount; i += 2) {
+      const a1 = i * dashAngle
+      const a2 = (i + 1) * dashAngle
+      this.shieldDashedGfx.beginPath()
+      this.shieldDashedGfx.arc(0, 0, BASE_SAFE_DISTANCE, a1, a2, false)
+      this.shieldDashedGfx.strokePath()
+    }
+
+    // Active Storm Ripples / Sparks
+    this.shieldRipplesGfx.clear()
+    if (isStormActive) {
+      const ripplePhase = (time % 1200) / 1200
+      const r1 = BASE_SAFE_DISTANCE - 12 + ripplePhase * 24
+      const r2 = BASE_SAFE_DISTANCE + 10 - ripplePhase * 20
+      this.shieldRipplesGfx.lineStyle(2.5, baseColor, (1 - ripplePhase) * 0.6 * nightBoost)
+      this.shieldRipplesGfx.strokeCircle(0, 0, r1)
+      this.shieldRipplesGfx.lineStyle(1.5, 0xffffff, (1 - ripplePhase) * 0.5 * nightBoost)
+      this.shieldRipplesGfx.strokeCircle(0, 0, r2)
+    }
+
+    // 5. Expanding Ripple Pool (Frequency based on shield strength: 1.5s to 3.0s)
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (!prefersReducedMotion) {
+      this.rippleTimer += dt
+      const rippleInterval = 3.0 - 1.5 * strengthRatio
+      if (this.rippleTimer >= rippleInterval && this.ripplePool.length > 0) {
+        this.rippleTimer = 0
+        const ripGfx = this.ripplePool.pop()!
+        ripGfx.setVisible(true)
+        this.activeRipples.push({
+          gfx: ripGfx,
+          elapsed: 0,
+          duration: 1.3,
+          maxAlpha: Math.max(0.15, 0.6 * strengthRatio),
+          color: baseColor,
+        })
+      }
+    }
+
+    // Advance active ripples
+    for (let i = this.activeRipples.length - 1; i >= 0; i--) {
+      const rip = this.activeRipples[i]
+      rip.elapsed += dt
+      const progress = rip.elapsed / rip.duration
+      if (progress >= 1) {
+        rip.gfx.clear()
+        rip.gfx.setVisible(false)
+        this.ripplePool.push(rip.gfx)
+        this.activeRipples.splice(i, 1)
+      } else {
+        rip.gfx.clear()
+        const curR = BASE_SAFE_DISTANCE * (1 + 0.12 * progress)
+        const curAlpha = rip.maxAlpha * (1 - progress) * nightBoost
+        rip.gfx.lineStyle(2, rip.color, curAlpha)
+        rip.gfx.strokeCircle(0, 0, curR)
+      }
+    }
+
+    // 6. Shield Label (Crisp, vector shield icon, inverted zoom, screen clamped)
+    if (this.shieldLabelContainer && this.shieldLabelText && this.shieldLabelPillGfx && this.shieldLabelIconGfx) {
+      this.shieldLabelText.setText(statusText)
+      this.shieldLabelText.setColor(textColor)
+
+      const textWidth = this.shieldLabelText.width
+      const iconSize = 14
+      const iconPadding = 12
+      const textPadding = 16
+      const pillW = textWidth + iconSize + iconPadding + textPadding * 2
+      const pillH = 34
+      const pillR = 17
+
+      // Center layout inside pill
+      const contentStartX = -pillW / 2 + textPadding
+      const iconCenterX = contentStartX + iconSize / 2
+      const textStartX = contentStartX + iconSize + iconPadding
+
+      this.shieldLabelText.setPosition(textStartX, 0)
+
+      // Draw vector shield badge icon (no emoji)
+      this.shieldLabelIconGfx.clear()
+      this.shieldLabelIconGfx.fillStyle(borderColor, 1)
+      this.shieldLabelIconGfx.beginPath()
+      this.shieldLabelIconGfx.moveTo(iconCenterX - 6, -7)
+      this.shieldLabelIconGfx.lineTo(iconCenterX + 6, -7)
+      this.shieldLabelIconGfx.lineTo(iconCenterX + 6, 0)
+      this.shieldLabelIconGfx.lineTo(iconCenterX, 8.5)
+      this.shieldLabelIconGfx.lineTo(iconCenterX - 6, 0)
+      this.shieldLabelIconGfx.closePath()
+      this.shieldLabelIconGfx.fillPath()
+
+      // Inner cut for shield icon
+      this.shieldLabelIconGfx.fillStyle(0x0f172a, 0.85)
+      this.shieldLabelIconGfx.beginPath()
+      this.shieldLabelIconGfx.moveTo(iconCenterX - 3.5, -5)
+      this.shieldLabelIconGfx.lineTo(iconCenterX + 3.5, -5)
+      this.shieldLabelIconGfx.lineTo(iconCenterX + 3.5, -0.5)
+      this.shieldLabelIconGfx.lineTo(iconCenterX, 5.5)
+      this.shieldLabelIconGfx.lineTo(iconCenterX - 3.5, -0.5)
+      this.shieldLabelIconGfx.closePath()
+      this.shieldLabelIconGfx.fillPath()
+
+      // Draw dark rounded pill background
+      this.shieldLabelPillGfx.clear()
+      this.shieldLabelPillGfx.fillStyle(0x0f172a, 0.85)
+      this.shieldLabelPillGfx.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, pillR)
+      this.shieldLabelPillGfx.lineStyle(2, borderColor, 1)
+      this.shieldLabelPillGfx.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, pillR)
+
+      // Invert camera zoom so label stays identical size on screen
+      const cam = this.cameras.main
+      const invZoom = 1 / cam.zoom
+      this.shieldLabelContainer.setScale(invZoom)
+
+      // Target world position: just above the top rim of the shield ring
+      const targetWorldX = BASE_X
+      const targetWorldY = BASE_Y - BASE_SAFE_DISTANCE - 26 * invZoom
+
+      // Clamp label position so it stays inside camera viewport
+      const marginX = (pillW / 2 + 12) * invZoom
+      const marginY = (pillH / 2 + 12) * invZoom
+      const clampedX = Phaser.Math.Clamp(
+        targetWorldX,
+        cam.worldView.x + marginX,
+        cam.worldView.right - marginX
+      )
+      const clampedY = Phaser.Math.Clamp(
+        targetWorldY,
+        cam.worldView.y + marginY,
+        cam.worldView.bottom - marginY
+      )
+
+      this.shieldLabelContainer.setPosition(clampedX, clampedY)
+    }
   }
 }

@@ -42,12 +42,6 @@ export default function SunsetOverlay() {
           style={{ opacity: orangeOpacity }}
         />
       )}
-
-      {/* Deep Martian twilight into night OR Moon pitch-black space */}
-      <div
-        className={`absolute inset-0 w-full h-full ${isMars ? 'bg-[#060b1c]' : 'bg-[#000000]'}`}
-        style={{ opacity: nightOpacity }}
-      />
     </div>
   )
 }
