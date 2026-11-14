@@ -98,7 +98,7 @@ export default function StartMenu() {
       {/* 2. ULTRA-GLOSSY INTERACTIVE COMMAND DECK                       */}
       {/* ============================================================== */}
       <div
-        className="mission-panel rounded-[30px] max-w-[610px] w-full p-4 sm:p-6 text-white flex flex-col gap-3.5 my-auto relative z-10 max-h-[94dvh] overflow-y-auto animate-modal-in transition-shadow duration-500"
+        className="mission-panel rounded-[28px] max-w-[620px] w-full p-3.5 sm:p-5 text-white flex flex-col gap-2.5 my-auto relative z-10 max-h-[96dvh] overflow-y-auto animate-modal-in transition-shadow duration-500"
         style={{
           transform: `perspective(1400px) rotateX(${(mousePos.y * -1.4).toFixed(2)}deg) rotateY(${(
             mousePos.x * 1.4
@@ -183,13 +183,13 @@ export default function StartMenu() {
 
         {/* Header: Mission Title, Glossy Badge & Interactive Trajectory Strip */}
         <div className="text-center flex flex-col items-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gradient-to-r from-white/[0.08] via-white/[0.15] to-white/[0.08] border border-white/25 text-[10px] sm:text-[11px] font-mono font-semibold tracking-widest text-amber-200 uppercase mb-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.3)] relative overflow-hidden">
+          <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-gradient-to-r from-white/[0.08] via-white/[0.15] to-white/[0.08] border border-white/25 text-[10px] font-mono font-semibold tracking-widest text-amber-200 uppercase mb-1 shadow-[0_4px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.3)] relative overflow-hidden">
             <span className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer pointer-events-none" />
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
             <span>NASA Space Apps Challenge · Mission Trainer</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-4xl md:text-[46px] font-bold tracking-tight text-white leading-none drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)]">
+          <h1 className="font-display text-2xl sm:text-3xl md:text-[38px] font-bold tracking-tight text-white leading-none drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)]">
             OUTPOST{' '}
             <span
               className={`bg-clip-text text-transparent bg-gradient-to-r transition-all duration-500 ${
@@ -202,13 +202,13 @@ export default function StartMenu() {
             </span>
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-200/95 mt-1.5 font-medium tracking-wide max-w-md">
+          <p className="text-[11px] sm:text-xs text-slate-200/95 mt-1 font-medium tracking-wide max-w-md">
             Survive the Sun. Power the habitat. Explore the unknown across a 20-sol expedition.
           </p>
         </div>
 
         {/* Commander Callsign Input & Live Trajectory Readout */}
-        <div className="glossy-card rounded-2xl p-3 border border-white/[0.16] flex flex-col gap-2 relative z-10">
+        <div className="glossy-card rounded-2xl p-2.5 border border-white/[0.16] flex flex-col gap-1.5 relative z-10">
           <div className="flex items-center justify-between">
             <label
               htmlFor="commander-name-input"
@@ -484,12 +484,12 @@ export default function StartMenu() {
         </div>
 
         {/* Skip Tutorial Switch Row */}
-        <label className="glossy-card flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl border border-white/[0.12] hover:border-white/25 text-xs text-slate-200 cursor-pointer select-none min-h-[44px] relative z-10">
+        <label className="glossy-card flex items-center justify-between gap-3 px-3 py-2 rounded-2xl border border-white/[0.12] hover:border-white/25 text-xs text-slate-200 cursor-pointer select-none min-h-[40px] relative z-10">
           <div className="flex flex-col">
             <span className="font-semibold text-white text-xs">
               Skip onboarding flight tutorial
             </span>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[10px] text-slate-400">
               Recommended if you have already completed Days 1–3 training
             </span>
           </div>
@@ -507,11 +507,11 @@ export default function StartMenu() {
           </div>
         </label>
 
-        {/* Sticky Glossy Launch Mission Button & Data Sources */}
-        <div className="sticky bottom-0 bg-slate-950/90 backdrop-blur-xl pt-3 pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 border-t border-white/[0.14] flex flex-col gap-2 mt-auto relative z-10">
+        {/* Glossy Launch Mission Button & Data Sources */}
+        <div className="pt-1 flex flex-col gap-1.5 relative z-10">
           <button
             onClick={handleLaunch}
-            className={`group relative overflow-hidden w-full min-h-[52px] py-3.5 px-6 text-white font-display font-bold text-base md:text-lg tracking-wide rounded-2xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2.5 active:scale-[0.99] border ${
+            className={`group relative overflow-hidden w-full min-h-[48px] py-3 px-6 text-white font-display font-bold text-base tracking-wide rounded-2xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2.5 active:scale-[0.99] border ${
               isMars
                 ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:via-amber-400 hover:to-orange-500 border-orange-300/70 shadow-[0_12px_36px_-6px_rgba(249,115,22,0.7),inset_0_1.5px_0_rgba(255,255,255,0.45)]'
                 : 'bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:via-sky-400 hover:to-blue-500 border-cyan-300/70 shadow-[0_12px_36px_-6px_rgba(34,211,238,0.65),inset_0_1.5px_0_rgba(255,255,255,0.45)]'
@@ -522,7 +522,7 @@ export default function StartMenu() {
               aria-hidden="true"
             />
             <RocketIcon
-              size={21}
+              size={20}
               className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-110 relative z-10"
             />
             <span className="relative z-10">
@@ -537,9 +537,9 @@ export default function StartMenu() {
                 sfx('open_soft', { volume: 0.5 })
                 setShowDataSourcesModal(true)
               }}
-              className="min-h-[38px] px-3.5 py-1 rounded-full text-xs text-sky-300 hover:text-white hover:bg-white/[0.08] font-medium cursor-pointer flex items-center gap-1.5 transition-all"
+              className="min-h-[32px] px-3 py-0.5 rounded-full text-xs text-sky-300 hover:text-white hover:bg-white/[0.08] font-medium cursor-pointer flex items-center gap-1.5 transition-all"
             >
-              <DatabaseScienceIcon size={14} className="text-sky-400 animate-pulse" />
+              <DatabaseScienceIcon size={13} className="text-sky-400 animate-pulse" />
               <span>Data Sources & NASA Provenance</span>
             </button>
           </div>
