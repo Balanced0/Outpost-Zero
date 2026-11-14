@@ -14,6 +14,9 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  /* Permanent GPU performance optimization across all devices: eliminate GPU blur compositing */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 html, body, #root {
@@ -177,4 +180,24 @@ input[type='range'].tactical-slider::-moz-range-thumb {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ?nofx=1 test flag: flat semi-transparent backgrounds, no shadows, no animations, no mix-blend */
+.nofx, .nofx * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  animation: none !important;
+  transition: none !important;
+  mix-blend-mode: normal !important;
+}
+
+.nofx .bg-gradient-to-b,
+.nofx .bg-gradient-to-r,
+.nofx .bg-gradient-to-t,
+.nofx .mission-panel,
+.nofx .hud-glass {
+  background: rgba(5, 10, 25, 0.95) !important;
 }

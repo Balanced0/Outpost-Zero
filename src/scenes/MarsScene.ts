@@ -354,8 +354,14 @@ export default class MarsScene extends Phaser.Scene {
         ctx.fill()
       }
 
-      // Add canvas texture to Phaser's texture manager
-      this.textures.addCanvas(TEX_KEY, canvas)
+      // Add canvas texture to Phaser's texture manager (safe for iPad Safari)
+      try {
+        this.textures.addCanvas(TEX_KEY, canvas)
+      } catch (err) {
+        console.warn('[MarsScene] addCanvas failed for moon ground, falling back to addImage:', err)
+        // @ts-ignore
+        this.textures.addImage(TEX_KEY, canvas)
+      }
       debugLogger.recordTexture(TEX_KEY, TEX_SIZE, TEX_SIZE)
     }
 
@@ -791,7 +797,13 @@ export default class MarsScene extends Phaser.Scene {
     ctx.arc(cx + 24, cy - 84, 6, -Math.PI / 2, Math.PI / 2)
     ctx.stroke()
 
-    this.textures.addCanvas(key, canvas)
+    try {
+      this.textures.addCanvas(key, canvas)
+    } catch (err) {
+      console.warn('[MarsScene] addCanvas failed for rover texture, falling back to addImage:', err)
+      // @ts-ignore
+      this.textures.addImage(key, canvas)
+    }
     debugLogger.recordTexture(key, W, H)
     return key
   }
@@ -927,7 +939,13 @@ export default class MarsScene extends Phaser.Scene {
     ctx.lineWidth = 1
     ctx.stroke()
 
-    this.textures.addCanvas(key, canvas)
+    try {
+      this.textures.addCanvas(key, canvas)
+    } catch (err) {
+      console.warn('[MarsScene] addCanvas failed for rover texture, falling back to addImage:', err)
+      // @ts-ignore
+      this.textures.addImage(key, canvas)
+    }
     debugLogger.recordTexture(key, W, H)
     return key
   }
@@ -1211,7 +1229,10 @@ export default class MarsScene extends Phaser.Scene {
 
     // 3. Upgraded scientific rover sprite (1.5x bigger, 4 wheels, camera turret, scientific chassis)
     const roverKey = this.generateRoverTexture()
-    this.rover = this.physics.add.image(BASE_X, BASE_Y, roverKey)
+    const storeState = useGameStore.getState()
+    const spawnX = typeof storeState.roverX === 'number' && !isNaN(storeState.roverX) ? storeState.roverX : BASE_X
+    const spawnY = typeof storeState.roverY === 'number' && !isNaN(storeState.roverY) ? storeState.roverY : BASE_Y
+    this.rover = this.physics.add.image(spawnX, spawnY, roverKey)
     this.rover.setDepth(12)
     this.roverBody = this.rover.body as Phaser.Physics.Arcade.Body
     this.roverBody.setCollideWorldBounds(true)

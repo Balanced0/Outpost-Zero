@@ -3,9 +3,21 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { debugLogger } from './utils/debugLogger'
+import { initSafeCanvas } from './utils/safeCanvas'
+
+// Polyfill safe canvas methods before anything else runs
+initSafeCanvas()
 
 // Initialize global unhandled error handlers immediately for iPad / browser debugging
 debugLogger.initGlobalHandlers()
+
+// Apply nofx class if ?nofx=1 is present in URL
+if (typeof window !== 'undefined') {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('nofx') === '1') {
+    document.documentElement.classList.add('nofx')
+  }
+}
 
 // Dynamically sync --app-h CSS variable with visualViewport / innerHeight for iOS Safari
 function updateAppHeight() {

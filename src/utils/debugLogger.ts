@@ -1,8 +1,7 @@
 /**
  * Debug Logger & Error Tracker for Outpost Zero.
- * Captures unhandled errors, texture sizes, renderer details, device diagnostics,
- * live game instance count, context loss counts, and frame progression.
- * Shown on screen when ?debug=1 is in the URL, or automatically when an error occurs.
+ * Captures unhandled errors with full stack traces, active URL flags,
+ * texture sizes, renderer details, device diagnostics, live game counts.
  */
 
 export interface TextureInfo {
@@ -11,10 +10,17 @@ export interface TextureInfo {
   height: number
 }
 
+export interface DetailedError {
+  id: string
+  timestamp: string
+  message: string
+  stack?: string
+}
+
 type Listener = () => void
 
 class DebugLogger {
-  public errors: string[] = []
+  public errors: DetailedError[] = []
   public textures: Map<string, TextureInfo> = new Map()
   public rendererType: string = 'Unknown'
   public maxTextureSize: number = 0
@@ -25,7 +31,6 @@ class DebugLogger {
   public hasError: boolean = false
   public isLowQuality: boolean = false
 
-  // Diagnostics requested by user
   public liveGameCount: number = 0
   public contextLostCount: number = 0
   public fallbackRan: boolean = false
@@ -46,14 +51,15 @@ class DebugLogger {
     this.initialized = true
 
     window.addEventListener('error', (event: ErrorEvent) => {
-      const msg = event.error?.stack || event.message || 'Unknown window.onerror'
+      const msg = event.message || (event.error ? String(event.error) : 'Unknown window.onerror')
+      const stack = event.error?.stack
 
-      // Catch error thrown from setExtensions or dispatchContextRestored inside Phaser
-      if (msg.includes('setExtensions') || msg.includes('dispatchContextRestored')) {
-        console.warn('[DebugLogger] Intercepted Phaser context restore/extensions error:', msg)
+      // Intercept Phaser setExtensions or dispatchContextRestored error
+      if (msg.includes('setExtensions') || msg.includes('dispatchContextRestored') || (stack && (stack.includes('setExtensions') || stack.includes('dispatchContextRestored')))) {
+        console.warn('[DebugLogger] Intercepted Phaser context restore/extensions error:', msg, stack)
         if (!this.handledContextRestoreError) {
           this.handledContextRestoreError = true
-          this.logError(`Phaser context restore failure: ${msg.split('\n')[0]}`)
+          this.logError(`Phaser context restore failure: ${msg}`, stack)
           if (this.onContextErrorFallback) {
             this.onContextErrorFallback()
           }
@@ -61,37 +67,48 @@ class DebugLogger {
         return
       }
 
-      this.logError(`[Error] ${msg}`)
+      this.logError(msg, stack)
     })
 
     window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
       const reason = event.reason
-      const msg = reason?.stack || (typeof reason === 'object' ? JSON.stringify(reason) : String(reason))
-      if (msg.includes('setExtensions') || msg.includes('dispatchContextRestored')) {
-        console.warn('[DebugLogger] Intercepted Phaser context restore unhandled rejection:', msg)
+      const msg = reason?.message || (typeof reason === 'object' ? JSON.stringify(reason) : String(reason))
+      const stack = reason?.stack
+
+      if (msg.includes('setExtensions') || msg.includes('dispatchContextRestored') || (stack && (stack.includes('setExtensions') || stack.includes('dispatchContextRestored')))) {
+        console.warn('[DebugLogger] Intercepted Phaser context restore unhandled rejection:', msg, stack)
         if (!this.handledContextRestoreError) {
           this.handledContextRestoreError = true
-          this.logError(`Phaser context restore rejection: ${msg.split('\n')[0]}`)
+          this.logError(`Phaser context restore rejection: ${msg}`, stack)
           if (this.onContextErrorFallback) {
             this.onContextErrorFallback()
           }
         }
         return
       }
-      this.logError(`[UnhandledRejection] ${msg}`)
+
+      this.logError(`[UnhandledRejection] ${msg}`, stack)
     })
   }
 
-  public logError(message: string) {
+  public logError(message: string, stack?: string) {
     const timestamp = new Date().toTimeString().slice(0, 8)
-    const entry = `[${timestamp}] ${message}`
-    this.errors.unshift(entry)
-    if (this.errors.length > 5) {
-      this.errors = this.errors.slice(0, 5)
+    const entry: DetailedError = {
+      id: Math.random().toString(36).slice(2, 9),
+      timestamp,
+      message,
+      stack,
     }
+
+    // Newest first, keep up to 10 full errors
+    this.errors.unshift(entry)
+    if (this.errors.length > 10) {
+      this.errors = this.errors.slice(0, 10)
+    }
+
     this.hasError = true
     this.notify()
-    console.error(entry)
+    console.error(`[OutpostZero Error] ${message}`, stack || '')
   }
 
   public recordTexture(key: string, width: number, height: number) {
@@ -143,6 +160,16 @@ class DebugLogger {
     if (typeof window === 'undefined') return false
     const params = new URLSearchParams(window.location.search)
     return params.get('debug') === '1' || this.hasError
+  }
+
+  public getActiveFlags(): Record<string, string> {
+    if (typeof window === 'undefined') return {}
+    const params = new URLSearchParams(window.location.search)
+    const flags: Record<string, string> = {}
+    params.forEach((val, key) => {
+      flags[key] = val
+    })
+    return flags
   }
 
   public subscribe(listener: Listener): () => void {

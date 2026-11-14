@@ -6,7 +6,7 @@ import { useGameStore } from '../store/gameStore'
 import { getClampedCanvasSize } from '../utils/qualitySettings'
 import { debugLogger } from '../utils/debugLogger'
 
-// Module-level singletons to guarantee exactly ONE live game instance
+// Module-level singletons to guarantee running game instance tracking
 let activeGameInstance: Phaser.Game | null = null
 let hasFallenBackToCanvas = false
 let isFallbackInProgress = false
@@ -15,11 +15,25 @@ export function getActiveGame(): Phaser.Game | null {
   return activeGameInstance
 }
 
+function getRequestedRenderer(): number {
+  if (typeof window === 'undefined') return Phaser.AUTO
+  const params = new URLSearchParams(window.location.search)
+  const r = params.get('renderer')?.toLowerCase()
+  if (r === 'canvas') return Phaser.CANVAS
+  if (r === 'webgl') return Phaser.WEBGL
+  return Phaser.AUTO
+}
+
+function isForceWebGL(): boolean {
+  if (typeof window === 'undefined') return false
+  const params = new URLSearchParams(window.location.search)
+  return params.get('renderer')?.toLowerCase() === 'webgl'
+}
+
 export default function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const isGameStarted = useGameStore((s) => s.isGameStarted)
   const [showReconnectingToast, setShowReconnectingToast] = useState(false)
-  const [, setRendererKey] = useState(0)
 
   useEffect(() => {
     if (!isGameStarted) {
@@ -42,45 +56,116 @@ export default function GameCanvas() {
     let cancelled = false
     let rAFId: number | null = null
     let contextLostTimer: number | null = null
+    let currentWrapper: HTMLDivElement | null = null
 
-    const safeDestroyExistingGame = (reason: string) => {
-      if (activeGameInstance) {
-        console.count(`[Phaser Lifecycle] Destroying prior instance (${reason})`)
-        console.trace(`[Phaser Lifecycle] Destroy stack (${reason})`)
-        try {
-          activeGameInstance.destroy(true)
-        } catch (e) {
-          console.warn('[Phaser Lifecycle] Destroy error:', e)
-        }
-        activeGameInstance = null
-        debugLogger.setLiveGameCount(0)
-      }
-    }
-
+    /**
+     * Creates a replacement game with Canvas renderer FIRST on a brand new DOM container,
+     * waits until it renders, and only then tears down the old WebGL game.
+     * Guarantees Live Game Count NEVER drops to 0.
+     */
     const triggerCanvasFallback = (reason: string) => {
+      if (isForceWebGL()) {
+        console.warn('[Phaser Lifecycle] ?renderer=webgl is active; ignoring Canvas fallback request:', reason)
+        return
+      }
       if (hasFallenBackToCanvas || isFallbackInProgress) return
       isFallbackInProgress = true
       hasFallenBackToCanvas = true
       debugLogger.setFallbackRan(true)
       debugLogger.logError(`Triggering Canvas fallback (once): ${reason}`)
-      console.warn(`[Phaser Lifecycle] Fallback to Canvas renderer triggered: ${reason}`)
+      console.warn(`[Phaser Lifecycle] Initiating replacement Canvas game (reason: ${reason})`)
 
-      safeDestroyExistingGame('fallbackToCanvas')
-      isFallbackInProgress = false
+      const oldGame = activeGameInstance
+      const oldWrapper = currentWrapper
 
-      // Trigger re-init with Canvas
-      if (!cancelled) {
-        setRendererKey((k) => k + 1)
+      // Create brand new wrapper div for the Canvas renderer (cannot reuse a canvas that had WebGL context)
+      const replacementWrapper = document.createElement('div')
+      replacementWrapper.id = 'phaser-canvas-wrapper'
+      replacementWrapper.style.position = 'absolute'
+      replacementWrapper.style.inset = '0'
+      replacementWrapper.style.width = '100%'
+      replacementWrapper.style.height = '100%'
+      replacementWrapper.style.overflow = 'hidden'
+      container.appendChild(replacementWrapper)
+      currentWrapper = replacementWrapper
+
+      const w = container.clientWidth || window.innerWidth
+      const h = container.clientHeight || window.innerHeight
+      const { effectiveDpr } = getClampedCanvasSize(w, h)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config: any = {
+        type: Phaser.CANVAS,
+        parent: replacementWrapper,
+        width: w,
+        height: h,
+        resolution: effectiveDpr,
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          parent: replacementWrapper,
+          autoCenter: Phaser.Scale.NO_CENTER,
+        },
+        backgroundColor: '#1a0a00',
+        physics: { default: 'arcade', arcade: { debug: false } },
+        scene: [PreloadScene, MarsScene],
+      }
+
+      try {
+        const replacementGame = new Phaser.Game(config)
+        // Keep live count >= 1 throughout transition
+        debugLogger.setLiveGameCount(1)
+
+        // Wait until replacement game executes its first step before destroying the old game
+        let hasSwapped = false
+        const cleanupOldGame = () => {
+          if (hasSwapped) return
+          hasSwapped = true
+          activeGameInstance = replacementGame
+          debugLogger.setLiveGameCount(1)
+          isFallbackInProgress = false
+
+          debugLogger.setRendererInfo({
+            type: 'Canvas',
+            maxTextureSize: 2048,
+            canvasBackingW: replacementGame.canvas?.width || w,
+            canvasBackingH: replacementGame.canvas?.height || h,
+            canvasCssW: w,
+            canvasCssH: h,
+          })
+
+          if (oldGame) {
+            console.log('[Phaser Lifecycle] Replacement Canvas game ready. Tearing down old WebGL game...')
+            try {
+              const gl = (oldGame.renderer as unknown as { gl?: WebGLRenderingContext })?.gl
+              gl?.getExtension('WEBGL_lose_context')?.loseContext()
+              oldGame.destroy(true)
+            } catch (e) {
+              console.warn('[Phaser Lifecycle] Error disposing old game context:', e)
+            }
+          }
+          if (oldWrapper && oldWrapper.parentNode) {
+            oldWrapper.parentNode.removeChild(oldWrapper)
+          }
+        }
+
+        replacementGame.events.once('step', cleanupOldGame)
+        // Safety timeout: swap after 500ms even if event listener doesn't fire
+        setTimeout(cleanupOldGame, 500)
+      } catch (err) {
+        isFallbackInProgress = false
+        const msg = err instanceof Error ? err.message : String(err)
+        debugLogger.logError(`Replacement Canvas game failed to initialize: ${msg}`)
+        console.error('[Phaser Lifecycle] Replacement game creation failed:', err)
       }
     }
 
-    // Register callback for debugLogger if setExtensions/dispatchContextRestored fails
+    // Connect debugLogger context restore error hook to fallback
     debugLogger.onContextErrorFallback = () => {
-      triggerCanvasFallback('setExtensions or dispatchContextRestored error')
+      triggerCanvasFallback('Phaser context restore (createResource/setExtensions) error')
     }
 
     /**
-     * Bootstraps Phaser ONLY after the container measures a real, non-zero size.
+     * Initializes the primary game instance.
      */
     const attemptInit = () => {
       if (cancelled) return
@@ -93,29 +178,39 @@ export default function GameCanvas() {
         return
       }
 
-      // If an instance already exists, do not recreate unless explicitly destroyed
       if (activeGameInstance) {
         console.warn('[Phaser Lifecycle] Game instance already exists, skipping duplicate creation')
         debugLogger.setLiveGameCount(1)
         return
       }
 
+      // Create initial wrapper
+      const wrapper = document.createElement('div')
+      wrapper.id = 'phaser-active-wrapper'
+      wrapper.style.position = 'absolute'
+      wrapper.style.inset = '0'
+      wrapper.style.width = '100%'
+      wrapper.style.height = '100%'
+      wrapper.style.overflow = 'hidden'
+      container.appendChild(wrapper)
+      currentWrapper = wrapper
+
+      const requestedRenderer = getRequestedRenderer()
       const { effectiveDpr } = getClampedCanvasSize(w, h)
-      const rendererType = hasFallenBackToCanvas ? Phaser.CANVAS : Phaser.AUTO
 
       console.count('[Phaser Lifecycle] Initializing Phaser.Game')
-      console.log(`[Phaser Lifecycle] Initializing with renderer: ${hasFallenBackToCanvas ? 'CANVAS' : 'AUTO'}`)
+      console.log(`[Phaser Lifecycle] Renderer selected: ${requestedRenderer === Phaser.CANVAS ? 'CANVAS' : requestedRenderer === Phaser.WEBGL ? 'WEBGL' : 'AUTO'}`)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const config: any = {
-        type: rendererType,
-        parent: container,
+        type: requestedRenderer,
+        parent: wrapper,
         width: w,
         height: h,
         resolution: effectiveDpr,
         scale: {
           mode: Phaser.Scale.RESIZE,
-          parent: container,
+          parent: wrapper,
           autoCenter: Phaser.Scale.NO_CENTER,
         },
         backgroundColor: '#1a0a00',
@@ -131,17 +226,15 @@ export default function GameCanvas() {
         const canvas = game.canvas
         if (canvas) {
           // Listen for WebGL context loss
-          // Do NOT destroy the game inside webglcontextlost! Let Phaser handle restore.
           const onContextLost = (e: Event) => {
             console.count('[Phaser Lifecycle] webglcontextlost event')
-            // Calling preventDefault tells the browser we intend to handle/restore the context
             e.preventDefault()
             debugLogger.recordContextLost()
             setShowReconnectingToast(true)
 
-            // If context stays lost for more than 3 seconds without restore, fallback to Canvas
-            if (!hasFallenBackToCanvas) {
+            if (!hasFallenBackToCanvas && !isForceWebGL()) {
               if (contextLostTimer !== null) clearTimeout(contextLostTimer)
+              // Wait up to 3 seconds for webglcontextrestored
               contextLostTimer = window.setTimeout(() => {
                 const gl = (game.renderer as unknown as { gl?: WebGLRenderingContext })?.gl
                 const isStillLost = gl ? gl.isContextLost() : true
@@ -169,7 +262,7 @@ export default function GameCanvas() {
           // Verify WebGL renderer has gl context if WebGL mode was chosen
           if (game.renderer.type === Phaser.WEBGL) {
             const gl = (game.renderer as unknown as { gl?: WebGLRenderingContext }).gl
-            if (!gl && !hasFallenBackToCanvas) {
+            if (!gl && !hasFallenBackToCanvas && !isForceWebGL()) {
               triggerCanvasFallback('WebGL renderer has no gl context after creation')
               return
             }
@@ -192,10 +285,10 @@ export default function GameCanvas() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         console.error('[Phaser Lifecycle] Game creation threw error:', err)
-        if (!hasFallenBackToCanvas) {
+        if (!hasFallenBackToCanvas && !isForceWebGL()) {
           triggerCanvasFallback(`Game constructor threw: ${msg}`)
         } else {
-          debugLogger.logError(`Fatal Phaser canvas initialization error: ${msg}`)
+          debugLogger.logError(`Fatal Phaser initialization error: ${msg}`)
         }
       }
     }
@@ -219,7 +312,6 @@ export default function GameCanvas() {
         g.scale.resize(w, h)
       }
 
-      // Refresh MarsScene camera and bounds
       const marsScene = g.scene.getScene('MarsScene') as MarsScene | undefined
       if (marsScene && marsScene.scene?.isActive()) {
         marsScene.refreshViewport(w, h)
@@ -253,7 +345,19 @@ export default function GameCanvas() {
       window.removeEventListener('orientationchange', resizeGame)
       debugLogger.onContextErrorFallback = undefined
 
-      safeDestroyExistingGame('React unmount cleanup')
+      if (activeGameInstance) {
+        console.count('[Phaser Lifecycle] React unmount cleanup: destroying Phaser.Game')
+        try {
+          activeGameInstance.destroy(true)
+        } catch (e) {
+          console.warn('[Phaser Lifecycle] Destroy on unmount failed:', e)
+        }
+        activeGameInstance = null
+        debugLogger.setLiveGameCount(0)
+      }
+      if (container) {
+        container.innerHTML = ''
+      }
     }
   }, [isGameStarted])
 
