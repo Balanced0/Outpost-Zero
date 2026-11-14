@@ -1,13 +1,14 @@
 import { useGameStore } from '../store/gameStore'
 
 export default function StormOverlay() {
+  const isGameStarted = useGameStore((s) => s.isGameStarted)
   const stormState = useGameStore((s) => s.stormState)
   const stormCountdown = useGameStore((s) => s.stormCountdown)
   const stormLevel = useGameStore((s) => s.stormLevelToday)
   const isRoverSheltered = useGameStore((s) => s.isRoverSheltered)
   const dayPhase = useGameStore((s) => s.dayPhase)
 
-  if (dayPhase === 'morning' || dayPhase === 'ended') {
+  if (!isGameStarted || dayPhase === 'morning' || dayPhase === 'ended') {
     return null
   }
 

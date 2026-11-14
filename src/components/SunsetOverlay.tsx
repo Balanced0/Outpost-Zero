@@ -2,9 +2,14 @@ import { useGameStore } from '../store/gameStore'
 import { SUNSET_WARN_SEC } from '../config/gameConfig'
 
 export default function SunsetOverlay() {
+  const isGameStarted = useGameStore((s) => s.isGameStarted)
   const timeLeft = useGameStore((s) => s.timeLeft)
   const dayPhase = useGameStore((s) => s.dayPhase)
   const planet = useGameStore((s) => s.planet)
+
+  if (!isGameStarted) {
+    return null
+  }
 
   // Only render when entering sunset/night or when day ended
   if (dayPhase === 'morning' || (timeLeft > SUNSET_WARN_SEC && dayPhase !== 'ended')) {

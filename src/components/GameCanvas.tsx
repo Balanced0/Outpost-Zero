@@ -2,12 +2,23 @@ import { useEffect, useRef } from 'react'
 import Phaser from 'phaser'
 import PreloadScene from '../scenes/PreloadScene'
 import MarsScene from '../scenes/MarsScene'
+import { useGameStore } from '../store/gameStore'
 
 export default function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
+  const isGameStarted = useGameStore((s) => s.isGameStarted)
 
   useEffect(() => {
+    // Strictly do not create Phaser game until "Launch mission" is pressed
+    if (!isGameStarted) {
+      if (gameRef.current) {
+        gameRef.current.destroy(true)
+        gameRef.current = null
+      }
+      return
+    }
+
     if (!containerRef.current || gameRef.current) return
 
     const config: Phaser.Types.Core.GameConfig = {
@@ -32,7 +43,11 @@ export default function GameCanvas() {
       gameRef.current?.destroy(true)
       gameRef.current = null
     }
-  }, [])
+  }, [isGameStarted])
+
+  if (!isGameStarted) {
+    return null
+  }
 
   return <div ref={containerRef} className="absolute inset-0" />
 }

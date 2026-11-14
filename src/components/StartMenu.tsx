@@ -1,8 +1,31 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useGameStore, loadSavedSettings } from '../store/gameStore'
 import { PlanetId, PLANETS } from '../config/planets'
 import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 import { sfx } from '../utils/sound'
+
+// Lightweight fixed star coordinates for instant pure-CSS starfield (zero JS calculation)
+const STAR_DOTS = [
+  { x: 8,  y: 12, size: 2, opacity: 0.7 },
+  { x: 18, y: 35, size: 1.5, opacity: 0.5 },
+  { x: 28, y: 18, size: 2, opacity: 0.8 },
+  { x: 12, y: 72, size: 1.5, opacity: 0.4 },
+  { x: 24, y: 88, size: 2, opacity: 0.6 },
+  { x: 38, y: 8,  size: 1.5, opacity: 0.5 },
+  { x: 45, y: 28, size: 2, opacity: 0.7 },
+  { x: 55, y: 15, size: 1.5, opacity: 0.6 },
+  { x: 68, y: 32, size: 2, opacity: 0.8 },
+  { x: 82, y: 14, size: 1.5, opacity: 0.5 },
+  { x: 92, y: 22, size: 2, opacity: 0.7 },
+  { x: 88, y: 65, size: 2.5, opacity: 0.85 },
+  { x: 74, y: 78, size: 1.5, opacity: 0.4 },
+  { x: 85, y: 90, size: 2, opacity: 0.7 },
+  { x: 62, y: 92, size: 1.5, opacity: 0.5 },
+  { x: 48, y: 82, size: 2, opacity: 0.6 },
+  { x: 35, y: 64, size: 1.5, opacity: 0.4 },
+  { x: 5,  y: 50, size: 2, opacity: 0.6 },
+  { x: 95, y: 48, size: 1.5, opacity: 0.5 },
+]
 
 export default function StartMenu() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)
@@ -16,21 +39,14 @@ export default function StartMenu() {
     saved.difficulty || 'commander'
   )
   const [skipTutorial, setSkipTutorial] = useState<boolean>(saved.skipTutorial ?? false)
-  const [hasIllustration, setHasIllustration] = useState(false)
-
-  // Test if an artist illustration exists in /assets/nasa/illustration.jpg
-  useEffect(() => {
-    const img = new Image()
-    img.src = '/assets/nasa/illustration.jpg'
-    img.onload = () => setHasIllustration(true)
-    img.onerror = () => setHasIllustration(false)
-  }, [])
+  const [planetLoaded, setPlanetLoaded] = useState(false)
 
   if (isGameStarted) {
     return null
   }
 
   const handleLaunch = () => {
+    sfx('launch', { volume: 0.7 })
     launchMission({
       commanderName: commanderName.trim() || 'Commander',
       planet: selectedPlanet,
@@ -39,9 +55,53 @@ export default function StartMenu() {
     })
   }
 
+  // Pre-resized (max 600px, ~75KB) Kenney planet illustrations
+  const planetImgSrc =
+    selectedPlanet === 'moon' ? '/assets/menu/planet05.png' : '/assets/menu/planet02.png'
+
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 pointer-events-auto select-none overflow-y-auto">
-      <div className="bg-slate-900/95 border-2 border-orange-500/70 rounded-3xl max-w-xl w-full p-6 md:p-8 text-white shadow-2xl flex flex-col gap-5 my-auto">
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto select-none overflow-y-auto"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 20%, #151a34 0%, #090c1e 52%, #020308 100%)',
+      }}
+    >
+      {/* 1. Plain CSS Starfield Dots — zero JS, 100% reliable background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        {STAR_DOTS.map((star, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-white pointer-events-none"
+            style={{
+              left: `${star.x}%`,
+              top: `${star.y}%`,
+              width: `${star.size}px`,
+              height: `${star.size}px`,
+              opacity: star.opacity,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* 2. Optional Resized Kenney Planet Image — fades in gently on top of gradient without blocking render */}
+      <div
+        className="absolute -top-12 -right-12 md:-top-16 md:-right-16 w-72 h-72 md:w-[440px] md:h-[440px] pointer-events-none overflow-hidden"
+        aria-hidden="true"
+      >
+        <img
+          src={planetImgSrc}
+          alt=""
+          loading="lazy"
+          onLoad={() => setPlanetLoaded(true)}
+          onError={() => setPlanetLoaded(false)}
+          className={`w-full h-full object-contain pointer-events-none select-none transition-opacity duration-1000 ${
+            planetLoaded ? 'opacity-25' : 'opacity-0'
+          }`}
+        />
+      </div>
+
+      {/* 3. Main Start Menu Card — Crisp, solid background (no heavy backdrop-blur) */}
+      <div className="bg-slate-900 border-2 border-orange-500/70 rounded-3xl max-w-xl w-full p-6 md:p-8 text-white shadow-2xl flex flex-col gap-5 my-auto relative z-10">
         {/* Title & Tagline */}
         <div className="text-center flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400/40 text-[11px] font-bold tracking-widest text-orange-400 uppercase mb-2">
@@ -56,22 +116,8 @@ export default function StartMenu() {
           </p>
         </div>
 
-        {/* Optional NASA Illustration (Only if available, labeled as artist drawing) */}
-        {hasIllustration && (
-          <div className="relative w-full bg-black/60 rounded-2xl p-2 border border-slate-800 flex flex-col items-center">
-            <img
-              src="/assets/nasa/illustration.jpg"
-              alt="NASA Concept Illustration"
-              className="max-h-36 w-full object-contain rounded-xl"
-            />
-            <span className="text-[10px] text-slate-400 font-mono mt-1">
-              Illustration: NASA/JPL-Caltech
-            </span>
-          </div>
-        )}
-
         {/* Commander Name Input */}
-        <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/80 flex flex-col gap-1.5">
+        <div className="bg-slate-800/90 rounded-2xl p-3.5 border border-slate-700/80 flex flex-col gap-1.5">
           <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
             <span>🧑‍🚀</span>
             <span>Welcome, Mission Commander</span>
@@ -83,7 +129,7 @@ export default function StartMenu() {
               value={commanderName}
               onChange={(e) => setCommanderName(e.target.value)}
               placeholder="Commander"
-              className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2 text-white font-bold text-sm tracking-wide focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full bg-slate-950/90 border border-slate-700 rounded-xl px-3.5 py-2 text-white font-bold text-sm tracking-wide focus:outline-none focus:border-orange-500 transition-colors"
             />
             <span className="absolute right-3 text-[11px] font-mono text-slate-500">
               {commanderName.length}/16
@@ -106,8 +152,8 @@ export default function StartMenu() {
               }}
               className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
                 selectedPlanet === 'mars'
-                  ? 'bg-orange-950/60 border-orange-500 shadow-lg shadow-orange-950/50 scale-[1.02]'
-                  : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-500 opacity-80'
+                  ? 'bg-orange-950/70 border-orange-500 shadow-lg shadow-orange-950/50 scale-[1.02]'
+                  : 'bg-slate-800/70 border-slate-700/80 hover:border-slate-500 opacity-80'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -134,7 +180,7 @@ export default function StartMenu() {
               className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
                 selectedPlanet === 'moon'
                   ? 'bg-slate-800/90 border-cyan-400 shadow-lg shadow-cyan-950/50 scale-[1.02]'
-                  : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-500 opacity-80'
+                  : 'bg-slate-800/70 border-slate-700/80 hover:border-slate-500 opacity-80'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -173,7 +219,7 @@ export default function StartMenu() {
                   className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 ${
                     isSelected
                       ? 'bg-slate-800 border-amber-400 shadow-md scale-[1.02]'
-                      : 'bg-slate-800/50 border-slate-700/70 hover:border-slate-500 opacity-80'
+                      : 'bg-slate-800/60 border-slate-700/70 hover:border-slate-500 opacity-80'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -199,7 +245,10 @@ export default function StartMenu() {
           <input
             type="checkbox"
             checked={skipTutorial}
-            onChange={(e) => setSkipTutorial(e.target.checked)}
+            onChange={(e) => {
+              sfx('tick', { volume: 0.4 })
+              setSkipTutorial(e.target.checked)
+            }}
             className="w-4 h-4 rounded accent-orange-500 cursor-pointer"
           />
           <span>Skip tutorial (recommended if you've already played)</span>
@@ -218,7 +267,10 @@ export default function StartMenu() {
         <div className="flex items-center justify-center pt-0.5">
           <button
             type="button"
-            onClick={() => setShowDataSourcesModal(true)}
+            onClick={() => {
+              sfx('open_soft', { volume: 0.5 })
+              setShowDataSourcesModal(true)
+            }}
             className="text-xs text-sky-400 hover:text-sky-300 underline font-semibold cursor-pointer flex items-center gap-1.5"
           >
             <span>🔬</span>
@@ -229,4 +281,3 @@ export default function StartMenu() {
     </div>
   )
 }
-

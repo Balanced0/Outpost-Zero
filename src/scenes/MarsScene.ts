@@ -44,7 +44,7 @@ export default class MarsScene extends Phaser.Scene {
   private dustEmitter!: Phaser.GameObjects.Particles.ParticleEmitter
 
   // Ground & Visual Layers
-  private groundRenderTexture!: Phaser.GameObjects.RenderTexture
+  private groundTileSprite!: Phaser.GameObjects.TileSprite
   private cratersGraphics!: Phaser.GameObjects.Graphics
   private rockSprites: (Phaser.GameObjects.Image | Phaser.GameObjects.Graphics)[] = []
 
@@ -155,9 +155,6 @@ export default class MarsScene extends Phaser.Scene {
   // ------------------------------------------------------------------ helpers
 
   private buildGround(checkFailed: (k: string) => boolean) {
-    const cols = Math.ceil(MAP_W / TILE_SIZE)
-    const rows = Math.ceil(MAP_H / TILE_SIZE)
-
     // Find which plain-ground tile keys actually loaded
     const availableTiles = MARS_GROUND_TILES.filter((k) => !checkFailed(k))
 
@@ -167,18 +164,10 @@ export default class MarsScene extends Phaser.Scene {
       return
     }
 
-    // Paint world using a single RenderTexture — plain tiles only
-    this.groundRenderTexture = this.add.renderTexture(0, 0, MAP_W, MAP_H)
-    this.groundRenderTexture.setOrigin(0, 0)
-    this.groundRenderTexture.setDepth(0)
-
-    // Pick between the two plain tiles randomly (seeded) so adjacent tiles differ slightly
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r < rows; r++) {
-        const key = availableTiles[this.rng.integerInRange(0, availableTiles.length - 1)]
-        this.groundRenderTexture.draw(key, c * TILE_SIZE, r * TILE_SIZE)
-      }
-    }
+    // High-performance hardware TileSprite (1 draw call, 0ms setup, zero frame buffer texture)
+    const key = availableTiles[0]
+    this.groundTileSprite = this.add.tileSprite(MAP_W / 2, MAP_H / 2, MAP_W, MAP_H, key)
+    this.groundTileSprite.setDepth(0)
 
     // Apply per-tile tint variation as a semi-transparent overlay drawn with graphics
     // This gives ~5% lighter/darker patches without touching the tile picker
@@ -241,12 +230,12 @@ export default class MarsScene extends Phaser.Scene {
     const planetId = useGameStore.getState().planet
     const planetConfig = PLANETS[planetId]
 
-    if (this.groundRenderTexture) {
+    if (this.groundTileSprite) {
       if (planetId === 'moon') {
         // Gray multiply tint for Moon
-        this.groundRenderTexture.setTint(planetConfig.groundTint)
+        this.groundTileSprite.setTint(planetConfig.groundTint)
       } else {
-        this.groundRenderTexture.clearTint()
+        this.groundTileSprite.clearTint()
       }
     }
 

@@ -354,6 +354,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
       set({
         isGameStarted: true,
+        isLoadingSpaceWeather: true,
         commanderName: commanderName.trim() || 'Commander',
         planet,
         difficulty,

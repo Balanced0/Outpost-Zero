@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "resize-photos": "npx tsx scripts/resizePhotos.ts"
+    "resize-photos": "npx tsx scripts/resizePhotos.ts",
+    "resize-planets": "npx tsx scripts/resizePlanets.ts"
   },
   "dependencies": {
     "phaser": "^3.60.0",

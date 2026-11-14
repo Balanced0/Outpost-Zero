@@ -68,7 +68,7 @@ export default function MorningScreen() {
   // 1. Loading Skeleton / Spinner State (After Launch Mission)
   if (isLoadingSpaceWeather) {
     return (
-      <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pointer-events-auto select-none">
+      <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/90 p-4 pointer-events-auto select-none">
         <div className="bg-slate-900 border-2 border-orange-500/50 rounded-3xl max-w-sm w-full p-8 text-white shadow-2xl flex flex-col items-center text-center gap-4 animate-pulse">
           <div className="w-14 h-14 rounded-full border-4 border-orange-500 border-t-transparent animate-spin mb-2" />
           <h2 className="text-xl font-bold tracking-wide text-orange-400">

@@ -5,6 +5,7 @@ const OUTER_RADIUS = 40   // half of 80px diameter
 const THUMB_RADIUS = 18   // half of 36px diameter
 
 export default function Joystick() {
+  const isGameStarted = useGameStore((s) => s.isGameStarted)
   const setJoystick = useGameStore((s) => s.setJoystick)
   const setIsDriving = useGameStore((s) => s.setIsDriving)
 
@@ -13,6 +14,10 @@ export default function Joystick() {
   const outerRef = useRef<HTMLDivElement>(null)
   const activeTouchId = useRef<number | null>(null)
   const originRef = useRef<{ x: number; y: number } | null>(null)
+
+  if (!isGameStarted) {
+    return null
+  }
 
   function updateThumb(tx: number, ty: number) {
     const outer = outerRef.current
