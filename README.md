@@ -11,8 +11,8 @@
 ## Project Links
 
 - **Live Game:** https://outpost-zero-theta.vercel.app/
-- **Demo Video:** [VIDEO_URL]
-- **Source Repository:** [REPO_URL]
+- **Demo Video:** [\[VIDEO_URL\]](https://www.youtube.com/watch?v=fVHmXuY60XA)
+- **Source Repository:** [\[REPO_URL\]](https://github.com/Balanced0/Outpost-Zero)
 
 ---
 
