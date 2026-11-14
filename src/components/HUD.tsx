@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useGameStore, BASE_X, BASE_Y } from '../store/gameStore'
 import { BASE_SAFE_DISTANCE, SUNSET_WARN_SEC } from '../config/gameConfig'
 import { DIFFICULTIES } from '../config/difficulty'
@@ -39,6 +40,7 @@ export default function HUD() {
   const dayDuration = useGameStore((s) => s.dayDuration)
   const dayPhase = useGameStore((s) => s.dayPhase)
   const isMissionComplete = useGameStore((s) => s.isMissionComplete)
+  const stormState = useGameStore((s) => s.stormState)
 
   // Base survival meters
   const air = useGameStore((s) => s.air)
@@ -59,6 +61,17 @@ export default function HUD() {
   const callEarthMessage = useGameStore((s) => s.callEarthMessage)
   const startCallEarth = useGameStore((s) => s.startCallEarth)
   const dismissCallEarthReply = useGameStore((s) => s.dismissCallEarthReply)
+
+  // Detect touch device (e.g. iPad / tablet / mobile) to tailor prompts
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  useEffect(() => {
+    const isTouch =
+      typeof window !== 'undefined' &&
+      ('ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        window.matchMedia('(pointer: coarse)').matches)
+    setIsTouchDevice(isTouch)
+  }, [])
 
   if (!isGameStarted) {
     return null
@@ -147,12 +160,14 @@ export default function HUD() {
       ? 'sunset'
       : 'midday'
 
+  const hasActiveStormBanner = stormState === 'warning' || stormState === 'active'
+
   return (
     <>
       {/* ============================================================== */}
-      {/* 1. MOBILE COMPACT HUD (screens < 640px, sm:hidden)            */}
+      {/* 1. MOBILE & SMALL TABLET COMPACT HUD (screens < 768px, md:hidden) */}
       {/* ============================================================== */}
-      <div className="sm:hidden">
+      <div className="md:hidden">
         {/* A) Single Thin Top Bar: Day, Time bar, Discoveries */}
         <div
           className="fixed top-0 left-0 right-0 z-20 hud-glass border-t-0 border-x-0 px-3 py-1.5 flex items-center justify-between text-xs pointer-events-auto select-none"
@@ -166,7 +181,7 @@ export default function HUD() {
             <span className="font-mono font-bold text-orange-400 text-[11px] whitespace-nowrap">
               D{day}/20
             </span>
-            <div className="flex-1 max-w-[96px] h-2 bg-slate-900 rounded-full overflow-hidden border border-white/10">
+            <div className="flex-1 max-w-[120px] sm:max-w-[180px] h-2 bg-slate-900 rounded-full overflow-hidden border border-white/10">
               <div
                 className={`h-full rounded-full transition-all duration-200 ${
                   isSunsetWarning
@@ -364,9 +379,11 @@ export default function HUD() {
         {/* F) Sunset Alert Banner for Mobile */}
         {isSunsetWarning && (
           <div
-            className="fixed z-20 pointer-events-none select-none left-1/2 -translate-x-1/2 w-[90vw] max-w-xs text-center"
+            className="fixed inset-x-0 z-20 pointer-events-none select-none flex justify-center px-4"
             style={{
-              top: 'max(8.5rem, calc(env(safe-area-inset-top) + 8rem))',
+              top: hasActiveStormBanner
+                ? 'max(11.8rem, calc(env(safe-area-inset-top) + 11.4rem))'
+                : 'max(8.2rem, calc(env(safe-area-inset-top) + 7.8rem))',
             }}
           >
             <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-md">
@@ -380,24 +397,26 @@ export default function HUD() {
       </div>
 
       {/* ============================================================== */}
-      {/* 2. DESKTOP HUD (screens ≥ 640px, hidden sm:block)              */}
+      {/* 2. IPAD / TABLET & DESKTOP HUD (screens ≥ 768px, hidden md:block) */}
+      {/*    - md (768px–1023px, iPad): compact 216px side stacks + 272px center */}
+      {/*    - lg (1024px+, Desktop): full 264px side stacks + 320px center     */}
       {/* ============================================================== */}
-      <div className="hidden sm:block absolute inset-0 pointer-events-none z-20">
+      <div className="hidden md:block absolute inset-0 pointer-events-none z-20">
         {/* Top-left: Battery, Base Compass, Discoveries, Call Earth, Nearest (Explorer only) */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
+        <div className="absolute top-3.5 lg:top-4 left-3.5 lg:left-4 flex flex-col gap-2">
           {/* A) Rover Battery Gauge */}
-          <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center text-emerald-300 flex-shrink-0">
-              <BatteryBoltIcon size={18} />
+          <div className="hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] pointer-events-auto flex items-center gap-2.5 lg:gap-3">
+            <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center text-emerald-300 flex-shrink-0">
+              <BatteryBoltIcon size={17} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-              <div className="text-white text-xs font-semibold flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <span className="font-display tracking-tight">Rover Battery</span>
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <div className="text-white text-[11px] lg:text-xs font-semibold flex items-center justify-between">
+                <span className="flex items-center gap-1 truncate">
+                  <span className="font-display tracking-tight truncate">Rover Battery</span>
                   <WhyButton term="rover battery" />
                 </span>
                 <span
-                  className={`font-mono text-[11px] font-bold ${
+                  className={`font-mono text-[10px] lg:text-[11px] font-bold flex-shrink-0 ${
                     batteryPercent < 20 ? 'text-rose-400 animate-pulse' : 'text-slate-200'
                   }`}
                 >
@@ -414,40 +433,42 @@ export default function HUD() {
           </div>
 
           {/* B) Base Vector Compass Panel */}
-          <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
+          <div className="hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] pointer-events-auto flex items-center gap-2.5 lg:gap-3">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-100 border ${
+              className={`w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-100 border ${
                 isRecharging
                   ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.35)]'
                   : 'bg-slate-900/90 border-white/15 text-orange-400'
               }`}
               style={{ transform: `rotate(${angleDeg}deg)` }}
             >
-              <CompassNeedleIcon size={15} />
+              <CompassNeedleIcon size={14} />
             </div>
             {isRecharging ? (
-              <div className="flex-1 flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-wider">
-                    Outpost Perimeter
+              <div className="flex-1 flex items-center justify-between min-w-0">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] lg:text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-wider truncate">
+                    Outpost Base
                   </span>
-                  <span className="text-emerald-300 text-xs font-bold font-mono flex items-center gap-1">
-                    <ZapBoltIcon size={12} /> Recharging!
+                  <span className="text-emerald-300 text-[11px] lg:text-xs font-bold font-mono flex items-center gap-1">
+                    <ZapBoltIcon size={11} /> Recharging!
                   </span>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
+                <span className="text-[9px] lg:text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 flex-shrink-0">
                   SAFE
                 </span>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-between">
+              <div className="flex-1 flex items-center justify-between min-w-0">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">
+                  <span className="text-[9px] lg:text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">
                     Base Vector
                   </span>
-                  <span className="text-white text-xs font-mono font-bold">{distance} m</span>
+                  <span className="text-white text-[11px] lg:text-xs font-mono font-bold">
+                    {distance} m
+                  </span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06]">
+                <span className="text-[9px] lg:text-[10px] font-mono text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded-md border border-white/[0.06]">
                   HDG {((Math.round(angleDeg) % 360) + 360) % 360}°
                 </span>
               </div>
@@ -455,17 +476,17 @@ export default function HUD() {
           </div>
 
           {/* C) Discoveries Score & Goal */}
-          <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center text-purple-300 flex-shrink-0">
-              <CrystalSampleIcon size={18} />
+          <div className="hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] pointer-events-auto flex items-center gap-2.5 lg:gap-3">
+            <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center text-purple-300 flex-shrink-0">
+              <CrystalSampleIcon size={17} />
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <div className="flex items-center justify-between text-xs font-semibold text-white">
+              <div className="flex items-center justify-between text-[11px] lg:text-xs font-semibold text-white">
                 <span className="flex items-center gap-1">
                   <span className="font-display tracking-tight">Discoveries</span>
                   <WhyButton term="scan" />
                 </span>
-                <span className="font-mono text-xs font-bold text-amber-300">
+                <span className="font-mono text-[11px] lg:text-xs font-bold text-amber-300">
                   {totalDiscoveryPoints} pts
                 </span>
               </div>
@@ -475,9 +496,9 @@ export default function HUD() {
                   style={{ width: `${goalProgressPct}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+              <div className="flex items-center justify-between text-[9px] lg:text-[10px] text-slate-400 font-mono">
                 <span>
-                  Goal: {totalDiscoveryPoints} / {discoveryGoal} points
+                  Goal: {totalDiscoveryPoints} / {discoveryGoal} pts
                 </span>
                 {totalDiscoveryPoints >= discoveryGoal && (
                   <span className="text-emerald-400 font-bold">✓ Met</span>
@@ -488,9 +509,9 @@ export default function HUD() {
 
           {/* D) Call Earth DSN Transceiver */}
           {dayPhase !== 'morning' && dayPhase !== 'ended' && (
-            <div className="hud-glass rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/35 flex items-center justify-center text-sky-300 flex-shrink-0">
-                <RadarDishIcon size={18} />
+            <div className="hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] pointer-events-auto flex items-center gap-2.5 lg:gap-3">
+              <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-sky-500/15 border border-sky-400/35 flex items-center justify-center text-sky-300 flex-shrink-0">
+                <RadarDishIcon size={17} />
               </div>
               <div className="flex-1 min-w-0 flex items-center justify-between">
                 {callEarthState === 'idle' ? (
@@ -502,11 +523,11 @@ export default function HUD() {
                         startCallEarth()
                       }}
                       disabled={battery < 5}
-                      className="flex-1 mr-1.5 min-h-[36px] py-1.5 px-3 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                      className="flex-1 mr-1 min-h-[34px] lg:min-h-[36px] py-1 px-2 lg:px-3 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] lg:text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1 active:scale-[0.98]"
                       title="Send a message to NASA Mission Control (costs 5 battery)"
                     >
                       <span>Call Earth</span>
-                      <span className="font-mono text-[10px] text-sky-200 bg-black/25 px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-[9px] lg:text-[10px] text-sky-200 bg-black/25 px-1 py-0.5 rounded">
                         -5⚡
                       </span>
                     </button>
@@ -514,22 +535,22 @@ export default function HUD() {
                   </>
                 ) : callEarthState === 'calling' ? (
                   <>
-                    <div className="flex items-center gap-2 text-xs text-sky-300 font-mono font-bold">
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+                    <div className="flex items-center gap-1.5 text-[11px] lg:text-xs text-sky-300 font-mono font-bold">
+                      <div className="w-3 h-3 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
                       <span>Signal: {Math.ceil(callEarthCountdown)}s</span>
                     </div>
                     <WhyButton term="comms delay" />
                   </>
                 ) : (
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs text-emerald-300 font-bold flex items-center gap-1.5">
+                    <span className="text-[11px] lg:text-xs text-emerald-300 font-bold flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                      Reply ready!
+                      Reply!
                     </span>
                     <button
                       type="button"
                       onClick={dismissCallEarthReply}
-                      className="min-h-[34px] px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow cursor-pointer transition-colors"
+                      className="min-h-[32px] px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] rounded-xl shadow cursor-pointer transition-colors"
                     >
                       Read
                     </button>
@@ -541,21 +562,21 @@ export default function HUD() {
 
           {/* E) Explorer Mode Nearest Hint Panel (ONLY on Explorer difficulty) */}
           {difficulty === 'explorer' && nearestUndiscoveredSpot && dayPhase !== 'morning' && (
-            <div className="hud-glass border-teal-400/40 rounded-2xl p-2.5 w-[264px] pointer-events-auto flex items-center gap-3">
+            <div className="hud-glass border-teal-400/40 rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] pointer-events-auto flex items-center gap-2.5 lg:gap-3">
               <div
-                className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-400/40 flex items-center justify-center text-teal-300 transition-transform duration-100 flex-shrink-0"
+                className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-teal-500/15 border border-teal-400/40 flex items-center justify-center text-teal-300 transition-transform duration-100 flex-shrink-0"
                 style={{ transform: `rotate(${nearestSpotAngleDeg}deg)` }}
               >
-                <CompassNeedleIcon size={15} />
+                <CompassNeedleIcon size={14} />
               </div>
               <div className="flex-1 min-w-0 flex flex-col leading-tight">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-semibold">
+                <span className="text-[9px] lg:text-[10px] font-mono uppercase tracking-wider text-teal-400 font-semibold">
                   Explorer Radar
                 </span>
-                <span className="text-white text-xs font-bold truncate mt-0.5">
+                <span className="text-white text-[11px] lg:text-xs font-bold truncate mt-0.5">
                   {nearestUndiscoveredSpot.name}
                 </span>
-                <span className="text-teal-300/90 font-mono text-[10px]">
+                <span className="text-teal-300/90 font-mono text-[9px] lg:text-[10px]">
                   {Math.round(nearestSpotDist)} m away
                 </span>
               </div>
@@ -564,8 +585,8 @@ export default function HUD() {
         </div>
 
         {/* Top-center: Day Timer, Sun bar, & Phase Tabs */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-auto">
-          <div className="hud-glass rounded-2xl px-5 py-2.5 flex flex-col items-center w-72 sm:w-80 gap-2">
+        <div className="fixed inset-x-0 top-3.5 lg:top-4 flex flex-col items-center gap-2 pointer-events-none">
+          <div className="hud-glass rounded-2xl px-4 lg:px-5 py-2.5 flex flex-col items-center w-[272px] lg:w-80 gap-2 pointer-events-auto">
             {/* Header: Planet, Difficulty, Commander */}
             <div className="flex items-center justify-between w-full text-[11px] font-medium text-slate-300 border-b border-white/[0.08] pb-1.5">
               <span className="inline-flex items-center gap-1.5 font-semibold text-white">
@@ -578,7 +599,7 @@ export default function HUD() {
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-300">{DIFFICULTIES[difficulty].name}</span>
               </span>
-              <span className="font-mono text-[10px] text-slate-400 truncate max-w-[100px]">
+              <span className="font-mono text-[10px] text-slate-400 truncate max-w-[90px]">
                 {commanderName}
               </span>
             </div>
@@ -637,9 +658,13 @@ export default function HUD() {
             </div>
           </div>
 
-          {/* Sunset Alert Banner */}
+          {/* Sunset Alert Banner (shifts below StormOverlay if a storm is also active) */}
           {isSunsetWarning && (
-            <div className="animate-bounce bg-rose-600/95 text-white text-xs font-bold px-4 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center gap-1.5 backdrop-blur-md pointer-events-auto">
+            <div
+              className={`animate-bounce bg-rose-600/95 text-white text-xs font-bold px-4 py-1.5 rounded-full border border-rose-300/50 shadow-lg flex items-center gap-1.5 backdrop-blur-md pointer-events-auto ${
+                hasActiveStormBanner ? 'mt-28' : ''
+              }`}
+            >
               <AlertTriangleIcon size={14} />
               <span>{planet === 'moon' ? 'Night soon! Head home.' : 'Sunset soon! Head home.'}</span>
             </div>
@@ -647,20 +672,20 @@ export default function HUD() {
         </div>
 
         {/* Top-right: Base Survival Meters (Air, Shield, Crew health) */}
-        {/* Positioned at top-[4.5rem] right-4 so it NEVER overlaps SoundToggle in the top-right corner! */}
-        <div className="absolute top-[4.5rem] right-4 flex flex-col gap-2 pointer-events-auto">
+        {/* Positioned at top-[4.25rem] right-3.5 lg:right-4 so it NEVER overlaps SoundToggle in the top-right corner! */}
+        <div className="absolute top-[4.25rem] lg:top-[4.5rem] right-3.5 lg:right-4 flex flex-col gap-2 pointer-events-auto">
           {/* 1. Air Machine */}
-          <div className="hud-glass rounded-2xl p-2.5 w-[264px] flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-400/35 flex items-center justify-center text-cyan-300 flex-shrink-0">
-              <AirLifeSupportIcon size={18} />
+          <div className="hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] flex items-center gap-2.5 lg:gap-3">
+            <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-cyan-500/15 border border-cyan-400/35 flex items-center justify-center text-cyan-300 flex-shrink-0">
+              <AirLifeSupportIcon size={17} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-              <div className="text-white text-xs font-semibold flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <span className="font-display tracking-tight">Air Machine</span>
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <div className="text-white text-[11px] lg:text-xs font-semibold flex items-center justify-between">
+                <span className="flex items-center gap-1 truncate">
+                  <span className="font-display tracking-tight truncate">Air Machine</span>
                   <WhyButton term="air machine" />
                 </span>
-                <span className={`font-mono text-[11px] font-bold ${airTextColor}`}>
+                <span className={`font-mono text-[10px] lg:text-[11px] font-bold ${airTextColor}`}>
                   {Math.round(air)}%
                 </span>
               </div>
@@ -674,17 +699,17 @@ export default function HUD() {
           </div>
 
           {/* 2. Shield Strength Meter */}
-          <div className="hud-glass rounded-2xl p-2.5 w-[264px] flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center text-purple-300 flex-shrink-0">
-              <ShieldDefenseIcon size={18} />
+          <div className="hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] flex items-center gap-2.5 lg:gap-3">
+            <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center text-purple-300 flex-shrink-0">
+              <ShieldDefenseIcon size={17} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-              <div className="text-white text-xs font-semibold flex items-center justify-between">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <div className="text-white text-[11px] lg:text-xs font-semibold flex items-center justify-between">
                 <span className="flex items-center gap-1">
                   <span className="font-display tracking-tight">Shield</span>
                   <WhyButton term="shield" />
                 </span>
-                <span className="font-mono text-[11px] font-bold text-purple-300">
+                <span className="font-mono text-[10px] lg:text-[11px] font-bold text-purple-300">
                   {shieldToday}%
                 </span>
               </div>
@@ -699,20 +724,22 @@ export default function HUD() {
 
           {/* 3. Crew Health Meter */}
           <div
-            className={`hud-glass rounded-2xl p-2.5 w-[264px] flex items-center gap-3 ${
+            className={`hud-glass rounded-2xl p-2 lg:p-2.5 w-[216px] lg:w-[264px] flex items-center gap-2.5 lg:gap-3 ${
               crewHealth <= 30 ? 'border-rose-500/60' : ''
             }`}
           >
-            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-400/35 flex items-center justify-center text-rose-300 flex-shrink-0">
-              <HeartPulseIcon size={18} />
+            <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-rose-500/15 border border-rose-400/35 flex items-center justify-center text-rose-300 flex-shrink-0">
+              <HeartPulseIcon size={17} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-              <div className="text-white text-xs font-semibold flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <span className="font-display tracking-tight">Crew Health</span>
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <div className="text-white text-[11px] lg:text-xs font-semibold flex items-center justify-between">
+                <span className="flex items-center gap-1 truncate">
+                  <span className="font-display tracking-tight truncate">Crew Health</span>
                   <WhyButton term="radiation" />
                 </span>
-                <span className={`font-mono text-[11px] font-bold ${healthTextColor}`}>
+                <span
+                  className={`font-mono text-[10px] lg:text-[11px] font-bold ${healthTextColor}`}
+                >
                   {Math.round(crewHealth)}%
                 </span>
               </div>
@@ -728,12 +755,12 @@ export default function HUD() {
       </div>
 
       {/* ============================================================== */}
-      {/* 3. DESKTOP INTERACTIVE SCAN PROMPT (Center-Bottom)            */}
+      {/* 3. TABLET & DESKTOP INTERACTIVE SCAN PROMPT (Center-Bottom)    */}
       {/* ============================================================== */}
       {nearbySpot && dayPhase !== 'morning' && dayPhase !== 'ended' && !isPoweredOff && (
-        <div className="hidden sm:flex absolute bottom-20 left-1/2 -translate-x-1/2 flex-col items-center gap-2 pointer-events-auto animate-fade-in z-30">
+        <div className="hidden md:flex fixed inset-x-0 bottom-20 justify-center pointer-events-none z-30">
           {activeScan ? (
-            <div className="mission-panel border border-cyan-400/60 rounded-2xl px-6 py-4 flex flex-col items-center min-w-[280px] text-center shadow-[0_0_30px_rgba(34,211,238,0.25)]">
+            <div className="mission-panel border border-cyan-400/60 rounded-2xl px-6 py-4 flex flex-col items-center min-w-[280px] text-center shadow-[0_0_30px_rgba(34,211,238,0.25)] pointer-events-auto animate-fade-in">
               <div className="flex items-center gap-2 text-cyan-300 text-xs font-mono font-bold mb-2">
                 <div className="w-3.5 h-3.5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
                 <span>
@@ -753,7 +780,7 @@ export default function HUD() {
               </span>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-1.5">
+            <div className="flex flex-col items-center gap-1.5 pointer-events-auto animate-fade-in">
               {scanError && (
                 <div className="bg-rose-950/95 border border-rose-500 text-rose-200 text-xs font-bold px-3.5 py-1 rounded-full shadow-lg animate-bounce flex items-center gap-1.5">
                   <AlertTriangleIcon size={13} />
@@ -786,11 +813,17 @@ export default function HUD() {
                     +{nearbySpot.points} {nearbySpot.points === 1 ? 'Point' : 'Points'}
                   </span>
                   <span className="text-[10px] text-slate-400 mt-0.5">
-                    Press{' '}
-                    <kbd className="bg-slate-800 border border-white/15 px-1.5 py-0.5 rounded text-white font-mono text-[10px]">
-                      SPACE
-                    </kbd>{' '}
-                    or click
+                    {isTouchDevice ? (
+                      'Tap button to analyze sample'
+                    ) : (
+                      <>
+                        Press{' '}
+                        <kbd className="bg-slate-800 border border-white/15 px-1.5 py-0.5 rounded text-white font-mono text-[10px]">
+                          SPACE
+                        </kbd>{' '}
+                        or click
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
