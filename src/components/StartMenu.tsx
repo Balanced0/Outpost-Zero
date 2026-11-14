@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useGameStore, loadSavedSettings } from '../store/gameStore'
 import { PlanetId, PLANETS } from '../config/planets'
 import { DifficultyId, DIFFICULTIES } from '../config/difficulty'
 import { sfx } from '../utils/sound'
+import { prefetchDonkiInIdle } from '../data/stormSource'
 import {
   RocketIcon,
   AstronautIcon,
@@ -52,6 +53,10 @@ export default function StartMenu() {
   )
   const [skipTutorial, setSkipTutorial] = useState<boolean>(saved.skipTutorial ?? false)
   const [planetLoaded, setPlanetLoaded] = useState(false)
+
+  useEffect(() => {
+    prefetchDonkiInIdle()
+  }, [])
 
   if (isGameStarted) {
     return null

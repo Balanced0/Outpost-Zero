@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { debugLogger } from '../utils/debugLogger'
+import { debugLogger, getActiveGame } from '../utils/debugLogger'
 import { isLowQualityMode, getEffectiveDpr } from '../utils/qualitySettings'
-import { getActiveGame } from './GameCanvas'
 
 export default function DebugPanel() {
   const [, setTick] = useState(0)

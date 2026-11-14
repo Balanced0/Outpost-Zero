@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { setLowQualityMode } from '../utils/qualitySettings'
-import { debugLogger } from '../utils/debugLogger'
-import { getActiveGame } from './GameCanvas'
+import { debugLogger, getActiveGame } from '../utils/debugLogger'
 
 export default function BlackScreenGuard() {
   const isGameStarted = useGameStore((s) => s.isGameStarted)

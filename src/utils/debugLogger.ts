@@ -182,4 +182,15 @@ class DebugLogger {
   }
 }
 
+// Active game instance reference stored in logger to decouple GameCanvas import
+let activeGameInstanceRef: any = null
+
+export function setActiveGame(game: any) {
+  activeGameInstanceRef = game
+}
+
+export function getActiveGame(): any {
+  return activeGameInstanceRef
+}
+
 export const debugLogger = new DebugLogger()

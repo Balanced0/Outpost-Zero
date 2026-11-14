@@ -14,6 +14,13 @@ import { PLANETS } from '../config/planets'
 import { STORM_STRENGTHS } from '../config/balance'
 import { DiscoverySpot } from '../data/discoverySpots'
 import { debugLogger } from '../utils/debugLogger'
+import {
+  buildMoonGroundTexture,
+  generateBaseTexture,
+  generateRoverTexture,
+  generateDustParticleTexture,
+} from '../utils/textureGenerators'
+import { isLowQualityMode, setLowQualityMode } from '../utils/qualitySettings'
 
 const MAP_W = 4000
 const MAP_H = 4000
@@ -104,6 +111,21 @@ export default class MarsScene extends Phaser.Scene {
 
   // First-frame sentinel for BlackScreenGuard
   private _firstFrameFired = false
+
+  // HUD Update Throttling (max 10 Hz / every 100ms)
+  private hudThrottleTimer: number = 0
+  private lastReportedBattery: number = -1
+  private lastReportedDriving: boolean | null = null
+  private lastReportedRoverX: number = -1
+  private lastReportedRoverY: number = -1
+  private accumulatedDistance: number = 0
+  private accumulatedTimerDt: number = 0
+  private accumulatedScanDt: number = 0
+  private localBattery: number = -1
+
+  // First 60 frames FPS auto-sampling
+  private fpsSamples: number[] = []
+  private fpsChecked: boolean = false
 
   constructor() {
     super('MarsScene')
@@ -305,65 +327,7 @@ export default class MarsScene extends Phaser.Scene {
    * with seeded lighter/darker patches (~8%) and fine speckle noise.
    */
   private buildMoonGround() {
-    const TEX_KEY = 'moon_ground_tile'
-    const TEX_SIZE = 256
-
-    if (!this.textures.exists(TEX_KEY)) {
-      // Build via an offscreen HTML canvas so we can use fillRect / fillStyle freely
-      const canvas = document.createElement('canvas')
-      canvas.width = TEX_SIZE
-      canvas.height = TEX_SIZE
-      const ctx = canvas.getContext('2d')!
-
-      // ---- Base fill ----
-      ctx.fillStyle = '#8a8a8a'
-      ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE)
-
-      // ---- Seeded variation patches (lighter and darker, ~8% swing) ----
-      // Simple mulberry-style LCG seeded to a fixed value for determinism
-      let seed = 0xdeadbeef
-      const rng = () => {
-        seed = (Math.imul(seed, 0x41c64e6d) + 0x6073) >>> 0
-        return seed / 0xffffffff
-      }
-
-      const patchCount = 180
-      for (let i = 0; i < patchCount; i++) {
-        const x = rng() * TEX_SIZE
-        const y = rng() * TEX_SIZE
-        const rx = 8 + rng() * 36
-        const ry = 6 + rng() * 24
-        const lighter = rng() > 0.5
-        // ~8% lighter (#9e9e9e) or darker (#757575)
-        ctx.fillStyle = lighter ? 'rgba(158,158,158,0.18)' : 'rgba(80,80,80,0.18)'
-        ctx.beginPath()
-        ctx.ellipse(x, y, rx, ry, rng() * Math.PI, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // ---- Fine speckle noise ----
-      const speckleCount = 500
-      for (let i = 0; i < speckleCount; i++) {
-        const sx = rng() * TEX_SIZE
-        const sy = rng() * TEX_SIZE
-        const r = 0.5 + rng() * 1.5
-        const bright = rng() > 0.5
-        ctx.fillStyle = bright ? 'rgba(176,176,176,0.55)' : 'rgba(100,100,100,0.55)'
-        ctx.beginPath()
-        ctx.arc(sx, sy, r, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // Add canvas texture to Phaser's texture manager (safe for iPad Safari)
-      try {
-        this.textures.addCanvas(TEX_KEY, canvas)
-      } catch (err) {
-        console.warn('[MarsScene] addCanvas failed for moon ground, falling back to addImage:', err)
-        // @ts-ignore
-        this.textures.addImage(TEX_KEY, canvas)
-      }
-      debugLogger.recordTexture(TEX_KEY, TEX_SIZE, TEX_SIZE)
-    }
+    const TEX_KEY = buildMoonGroundTexture(this.textures)
 
     this.groundTileSprite = this.add.tileSprite(
       MAP_W / 2,
@@ -608,204 +572,7 @@ export default class MarsScene extends Phaser.Scene {
    * Central dome + 2 connected pods + 2 solar arrays + landing pad with "H" marker + antenna + soft shadow.
    */
   private generateBaseTexture(isMoon: boolean): string {
-    const key = isMoon ? 'outpost_base_moon' : 'outpost_base_mars'
-    if (this.textures.exists(key)) return key
-
-    const canvas = document.createElement('canvas')
-    const W = 320
-    const H = 280
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')!
-
-    const cx = 160
-    const cy = 140
-
-    // 1. Soft Drop Shadow (offset away from sun towards +x, +y)
-    const shadowColor = isMoon ? 'rgba(0, 0, 0, 0.65)' : 'rgba(0, 0, 0, 0.32)'
-    const sox = 14
-    const soy = 16
-    ctx.fillStyle = shadowColor
-
-    // Landing pad shadow
-    ctx.beginPath()
-    ctx.arc(cx + sox, cy + soy, 48, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Central dome shadow
-    ctx.beginPath()
-    ctx.arc(cx + sox, cy - 52 + soy, 40, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Pod shadows
-    const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
-      ctx.beginPath()
-      ctx.moveTo(x + r, y)
-      ctx.lineTo(x + w - r, y)
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-      ctx.lineTo(x + w, y + h - r)
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-      ctx.lineTo(x + r, y + h)
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-      ctx.lineTo(x, y + r)
-      ctx.quadraticCurveTo(x, y, x + r, y)
-      ctx.closePath()
-    }
-
-    roundRect(cx - 72 + sox, cy - 52 - 15 + soy, 38, 30, 8)
-    ctx.fill()
-    roundRect(cx + 34 + sox, cy - 52 - 15 + soy, 38, 30, 8)
-    ctx.fill()
-
-    // Solar array shadows
-    roundRect(cx - 126 + sox, cy - 52 - 28 + soy, 40, 56, 4)
-    ctx.fill()
-    roundRect(cx + 86 + sox, cy - 52 - 28 + soy, 40, 56, 4)
-    ctx.fill()
-
-    // 2. Landing Pad (Centered at rover spawn point cx, cy)
-    // Outer metallic hazard ring
-    ctx.fillStyle = isMoon ? '#334155' : '#3f3833'
-    ctx.beginPath()
-    ctx.arc(cx, cy, 48, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.lineWidth = 3
-    ctx.strokeStyle = '#475569'
-    ctx.stroke()
-
-    // Inner landing circle
-    ctx.lineWidth = 2
-    ctx.strokeStyle = '#64748b'
-    ctx.beginPath()
-    ctx.arc(cx, cy, 34, 0, Math.PI * 2)
-    ctx.stroke()
-
-    // "H" Marker in faint off-white
-    ctx.lineWidth = 3.5
-    ctx.strokeStyle = '#cbd5e1'
-    ctx.beginPath()
-    // Left vertical bar
-    ctx.moveTo(cx - 9, cy - 14)
-    ctx.lineTo(cx - 9, cy + 14)
-    // Right vertical bar
-    ctx.moveTo(cx + 9, cy - 14)
-    ctx.lineTo(cx + 9, cy + 14)
-    // Crossbar
-    ctx.moveTo(cx - 9, cy)
-    ctx.lineTo(cx + 9, cy)
-    ctx.stroke()
-
-    // 3. Airlock Tunnel Corridors
-    ctx.fillStyle = '#94a3b8'
-    ctx.strokeStyle = '#475569'
-    ctx.lineWidth = 2
-    // South tunnel connecting landing pad to central dome
-    ctx.fillRect(cx - 9, cy - 30, 18, 22)
-    ctx.strokeRect(cx - 9, cy - 30, 18, 22)
-    // West tunnel connecting dome to west pod
-    ctx.fillRect(cx - 40, cy - 58, 16, 12)
-    ctx.strokeRect(cx - 40, cy - 58, 16, 12)
-    // East tunnel connecting dome to east pod
-    ctx.fillRect(cx + 24, cy - 58, 16, 12)
-    ctx.strokeRect(cx + 24, cy - 58, 16, 12)
-
-    // 4. Habitat Pods (West and East)
-    const podFill = isMoon ? '#f8fafc' : '#f5ebe3'
-    ctx.fillStyle = podFill
-    ctx.strokeStyle = '#64748b'
-    ctx.lineWidth = 2.5
-    // West pod
-    roundRect(cx - 72, cy - 52 - 15, 38, 30, 8)
-    ctx.fill()
-    ctx.stroke()
-    // East pod
-    roundRect(cx + 34, cy - 52 - 15, 38, 30, 8)
-    ctx.fill()
-    ctx.stroke()
-
-    // 5. Central Dome (Top-down dome with specular highlight arc and metallic rim)
-    ctx.fillStyle = podFill
-    ctx.beginPath()
-    ctx.arc(cx, cy - 52, 40, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.lineWidth = 3
-    ctx.strokeStyle = '#64748b'
-    ctx.stroke()
-
-    // Dome specular reflection highlight (sun side: upper-left)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
-    ctx.beginPath()
-    ctx.ellipse(cx - 10, cy - 62, 20, 12, -Math.PI / 6, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Central cupola / hatch ring
-    ctx.fillStyle = '#475569'
-    ctx.beginPath()
-    ctx.arc(cx, cy - 52, 9, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#64748b'
-    ctx.beginPath()
-    ctx.arc(cx, cy - 52, 5, 0, Math.PI * 2)
-    ctx.fill()
-
-    // 6. Solar Panel Arrays (West and East wings)
-    // Struts
-    ctx.fillStyle = '#475569'
-    ctx.fillRect(cx - 86, cy - 54, 14, 4)
-    ctx.fillRect(cx + 72, cy - 54, 14, 4)
-
-    const drawSolarPanel = (px: number, py: number) => {
-      // Dark navy base
-      ctx.fillStyle = '#172554'
-      roundRect(px, py, 40, 56, 4)
-      ctx.fill()
-      ctx.lineWidth = 2
-      ctx.strokeStyle = '#3b82f6'
-      ctx.stroke()
-
-      // Thin cyan grid lines
-      ctx.strokeStyle = '#60a5fa'
-      ctx.lineWidth = 1.2
-      // 3 Vertical lines
-      for (let i = 1; i <= 3; i++) {
-        ctx.beginPath()
-        ctx.moveTo(px + i * 10, py + 2)
-        ctx.lineTo(px + i * 10, py + 54)
-        ctx.stroke()
-      }
-      // 4 Horizontal lines
-      for (let j = 1; j <= 4; j++) {
-        ctx.beginPath()
-        ctx.moveTo(px + 2, py + j * 11)
-        ctx.lineTo(px + 38, py + j * 11)
-        ctx.stroke()
-      }
-    }
-
-    drawSolarPanel(cx - 126, cy - 52 - 28)
-    drawSolarPanel(cx + 86, cy - 52 - 28)
-
-    // 7. Antenna Tower & Radar Dish
-    ctx.strokeStyle = '#475569'
-    ctx.lineWidth = 2.5
-    ctx.beginPath()
-    ctx.moveTo(cx + 26, cy - 72)
-    ctx.lineTo(cx + 26, cy - 96)
-    ctx.stroke()
-    // Small dish
-    ctx.beginPath()
-    ctx.arc(cx + 24, cy - 84, 6, -Math.PI / 2, Math.PI / 2)
-    ctx.stroke()
-
-    try {
-      this.textures.addCanvas(key, canvas)
-    } catch (err) {
-      console.warn('[MarsScene] addCanvas failed for rover texture, falling back to addImage:', err)
-      // @ts-ignore
-      this.textures.addImage(key, canvas)
-    }
-    debugLogger.recordTexture(key, W, H)
-    return key
+    return generateBaseTexture(this.textures, isMoon)
   }
 
   /**
@@ -813,141 +580,7 @@ export default class MarsScene extends Phaser.Scene {
    * 4 rugged wheels with hubcaps, scientific chassis, solar rear deck, instrument pod, camera turret, headlights.
    */
   private generateRoverTexture(): string {
-    const key = 'pro_rover'
-    if (this.textures.exists(key)) return key
-
-    const canvas = document.createElement('canvas')
-    const W = 84
-    const H = 56
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')!
-
-    const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
-      ctx.beginPath()
-      ctx.moveTo(x + r, y)
-      ctx.lineTo(x + w - r, y)
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-      ctx.lineTo(x + w, y + h - r)
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-      ctx.lineTo(x + r, y + h)
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-      ctx.lineTo(x, y + r)
-      ctx.quadraticCurveTo(x, y, x + r, y)
-      ctx.closePath()
-    }
-
-    // 1. 4 Rugged Wheels (Charcoal with treads & hubcaps)
-    const drawWheel = (wx: number, wy: number) => {
-      ctx.fillStyle = '#1e293b'
-      roundRect(wx, wy, 20, 11, 3)
-      ctx.fill()
-      ctx.lineWidth = 1.5
-      ctx.strokeStyle = '#64748b'
-      ctx.stroke()
-
-      // Tread notches
-      ctx.strokeStyle = '#334155'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(wx + 6, wy)
-      ctx.lineTo(wx + 6, wy + 11)
-      ctx.moveTo(wx + 10, wy)
-      ctx.lineTo(wx + 10, wy + 11)
-      ctx.moveTo(wx + 14, wy)
-      ctx.lineTo(wx + 14, wy + 11)
-      ctx.stroke()
-
-      // Center hub
-      ctx.fillStyle = '#94a3b8'
-      ctx.beginPath()
-      ctx.arc(wx + 10, wy + 5.5, 2.5, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    drawWheel(8, 2)
-    drawWheel(56, 2)
-    drawWheel(8, 43)
-    drawWheel(56, 43)
-
-    // Wheel axles
-    ctx.fillStyle = '#475569'
-    ctx.fillRect(18, 7, 48, 4)
-    ctx.fillRect(18, 45, 48, 4)
-
-    // 2. Chassis / Main Scientific Body
-    ctx.fillStyle = '#f1f5f9'
-    roundRect(14, 10, 56, 36, 9)
-    ctx.fill()
-    ctx.lineWidth = 2
-    ctx.strokeStyle = '#64748b'
-    ctx.stroke()
-
-    // Solar array on rear deck
-    ctx.fillStyle = '#0f172a'
-    roundRect(18, 14, 22, 28, 4)
-    ctx.fill()
-    ctx.lineWidth = 1
-    ctx.strokeStyle = '#0284c7'
-    ctx.stroke()
-    // Thin cyan solar lines
-    ctx.strokeStyle = '#38bdf8'
-    ctx.beginPath()
-    ctx.moveTo(25, 14)
-    ctx.lineTo(25, 42)
-    ctx.moveTo(32, 14)
-    ctx.lineTo(32, 42)
-    ctx.moveTo(18, 28)
-    ctx.lineTo(40, 28)
-    ctx.stroke()
-
-    // Science instrument pod (center)
-    ctx.fillStyle = '#0284c7'
-    roundRect(43, 16, 14, 24, 3)
-    ctx.fill()
-    // Instrument LEDs
-    ctx.fillStyle = '#4ade80'
-    ctx.beginPath()
-    ctx.arc(47, 21, 1.5, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#38bdf8'
-    ctx.beginPath()
-    ctx.arc(47, 28, 1.5, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Camera mast / sensor turret (front)
-    ctx.fillStyle = '#334155'
-    roundRect(60, 22, 12, 12, 4)
-    ctx.fill()
-    // Front camera lens with specular dot
-    ctx.fillStyle = '#06b6d4'
-    ctx.beginPath()
-    ctx.arc(70, 28, 4, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.arc(69, 27, 1.2, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Twin front headlight lamps
-    ctx.fillStyle = '#fef08a'
-    ctx.beginPath()
-    ctx.arc(68, 17, 3.5, 0, Math.PI * 2)
-    ctx.arc(68, 39, 3.5, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = '#eab308'
-    ctx.lineWidth = 1
-    ctx.stroke()
-
-    try {
-      this.textures.addCanvas(key, canvas)
-    } catch (err) {
-      console.warn('[MarsScene] addCanvas failed for rover texture, falling back to addImage:', err)
-      // @ts-ignore
-      this.textures.addImage(key, canvas)
-    }
-    debugLogger.recordTexture(key, W, H)
-    return key
+    return generateRoverTexture(this.textures)
   }
 
   private placeBase(_checkFailed: (k: string) => boolean) {
@@ -1266,21 +899,15 @@ export default class MarsScene extends Phaser.Scene {
   }
 
   private createDustParticles() {
-    const dustKey = 'dust_particle'
-    if (!this.textures.exists(dustKey)) {
-      const g = this.make.graphics()
-      g.setVisible(false)
-      g.fillStyle(0xd97736, 1)
-      g.fillCircle(4, 4, 4)
-      g.generateTexture(dustKey, 8, 8)
-    }
-
-    const particles = this.add.particles(0, 0, dustKey, {
-      speed: { min: 10, max: 30 },
-      scale: { start: 0.8, end: 0 },
-      alpha: { start: 0.5, end: 0 },
-      lifespan: 400,
-      frequency: 45,
+    generateDustParticleTexture(this.textures)
+    const lowQ = isLowQualityMode()
+    const particles = this.add.particles(0, 0, 'dust_particle', {
+      speed: { min: 10, max: 25 },
+      scale: { start: lowQ ? 0.5 : 0.8, end: 0 },
+      alpha: { start: lowQ ? 0.3 : 0.5, end: 0 },
+      lifespan: lowQ ? 250 : 400,
+      frequency: lowQ ? 90 : 45,
+      maxParticles: lowQ ? 12 : 28,
       emitting: false,
     })
     this.dustEmitter = particles
@@ -1310,16 +937,32 @@ export default class MarsScene extends Phaser.Scene {
       return
     }
 
+    // FPS auto-detection (first 60 frames) → enable low quality if avg < 40 FPS
+    if (!this.fpsChecked && delta > 0) {
+      this.fpsSamples.push(1000 / delta)
+      if (this.fpsSamples.length >= 60) {
+        this.fpsChecked = true
+        const avgFps = this.fpsSamples.reduce((a, b) => a + b, 0) / 60
+        if (avgFps < 40 && !isLowQualityMode()) {
+          setLowQualityMode(true)
+        }
+      }
+    }
+
+    // Initialise local battery mirror on first active frame
+    if (this.localBattery < 0) this.localBattery = store.battery
+
     // Notify BlackScreenGuard that the canvas is rendering (once only)
     if (!this._firstFrameFired) {
       this._firstFrameFired = true
       window.dispatchEvent(new Event('phaser-frame-rendered'))
     }
 
-    store.tickDayTimer(dt)
+    // Accumulate dt for HUD flush (timers & scan advance in the flush below)
+    this.accumulatedTimerDt += dt
 
     if (activeScan) {
-      store.tickScan(dt)
+      this.accumulatedScanDt += dt
     }
 
     this.renderScanRing(store.activeScan)
@@ -1345,7 +988,19 @@ export default class MarsScene extends Phaser.Scene {
     if (isPoweredOff || isControlsLocked || dayPhase === 'ended' || dayPhase === 'morning') {
       this.roverBody.setVelocity(0, 0)
       if (this.dustEmitter && this.dustEmitter.emitting) this.dustEmitter.stop()
-      store.setIsDriving(false)
+      // Flush accumulated timers and report idle driving/position
+      if (this.accumulatedTimerDt > 0) {
+        store.tickDayTimer(this.accumulatedTimerDt)
+        this.accumulatedTimerDt = 0
+      }
+      if (this.accumulatedScanDt > 0) {
+        store.tickScan(this.accumulatedScanDt)
+        this.accumulatedScanDt = 0
+      }
+      if (this.lastReportedDriving !== false) {
+        this.lastReportedDriving = false
+        store.setIsDriving(false)
+      }
       store.setRoverPos(this.rover.x, this.rover.y)
       this.updateBaseVisuals(store, distToBase, false)
       this.updateShieldBubble(dt, distToBase, store, _time)
@@ -1399,7 +1054,7 @@ export default class MarsScene extends Phaser.Scene {
 
     if (driving) {
       const stepDist = Math.sqrt(vx * vx + vy * vy) * dt
-      store.addDistanceDriven(stepDist)
+      this.accumulatedDistance += stepDist
 
       if (planetConfig.hasAtmosphereDust) {
         const angle = Math.atan2(vy, vx)
@@ -1414,29 +1069,57 @@ export default class MarsScene extends Phaser.Scene {
       if (this.dustEmitter && this.dustEmitter.emitting) this.dustEmitter.stop()
     }
 
-    store.setIsDriving(driving)
-
     const dist = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, BASE_X, BASE_Y)
     this.updateBaseVisuals(store, dist, driving)
     this.updateShieldBubble(dt, dist, store, _time)
 
-    let battery = store.battery
-
+    // Local battery physics at full 60 Hz (never read from store to avoid lag)
     if (driving) {
       const drainRate = BATTERY_DRAIN_DRIVING * planetConfig.batteryDrainMultiplier
-      battery -= drainRate * dt
+      this.localBattery -= drainRate * dt
     } else if (dist < BASE_SAFE_DISTANCE) {
-      battery += BATTERY_RECHARGE_BASE * dt
+      this.localBattery += BATTERY_RECHARGE_BASE * dt
     }
+    this.localBattery = Phaser.Math.Clamp(this.localBattery, 0, store.batteryCapacity)
 
-    battery = Phaser.Math.Clamp(battery, 0, store.batteryCapacity)
-    store.setBattery(battery)
-
-    if (battery <= 0 && !isPoweredOff) {
+    if (this.localBattery <= 0 && !isPoweredOff) {
       store.setIsPoweredOff(true)
     }
 
-    store.setRoverPos(this.rover.x, this.rover.y)
+    // ── 10 Hz HUD flush (100 ms) ─────────────────────────────────────────────
+    this.hudThrottleTimer += dt
+    if (this.hudThrottleTimer >= 0.1) {
+      this.hudThrottleTimer = 0
+
+      if (this.accumulatedTimerDt > 0) {
+        store.tickDayTimer(this.accumulatedTimerDt)
+        this.accumulatedTimerDt = 0
+      }
+      if (this.accumulatedScanDt > 0) {
+        store.tickScan(this.accumulatedScanDt)
+        this.accumulatedScanDt = 0
+      }
+      if (this.accumulatedDistance > 0) {
+        store.addDistanceDriven(this.accumulatedDistance)
+        this.accumulatedDistance = 0
+      }
+      if (this.lastReportedDriving !== driving) {
+        this.lastReportedDriving = driving
+        store.setIsDriving(driving)
+      }
+      const roundedBat = Math.round(this.localBattery * 10) / 10
+      if (Math.abs(roundedBat - this.lastReportedBattery) >= 0.1) {
+        this.lastReportedBattery = roundedBat
+        store.setBattery(roundedBat)
+      }
+      const rx = Math.round(this.rover.x)
+      const ry = Math.round(this.rover.y)
+      if (Math.hypot(rx - this.lastReportedRoverX, ry - this.lastReportedRoverY) >= 2) {
+        this.lastReportedRoverX = rx
+        this.lastReportedRoverY = ry
+        store.setRoverPos(rx, ry)
+      }
+    }
 
     // Proximity check for Discovery Spots
     const spots = store.discoverySpots.filter((s) => !s.collected)
