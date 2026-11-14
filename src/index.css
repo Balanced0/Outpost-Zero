@@ -33,7 +33,16 @@ html, body, #root {
   touch-action: manipulation;
 }
 
-/* Ensure Phaser canvas fills 100% of parent with zero letterboxing or margin offset */
+/* Ensure Phaser canvas sits inside container without sizing it */
+#game-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+#game-container canvas,
 canvas {
   display: block;
   margin: 0 !important;

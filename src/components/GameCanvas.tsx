@@ -19,37 +19,66 @@ export default function GameCanvas() {
       return
     }
 
-    if (!containerRef.current || gameRef.current) return
+    const container = containerRef.current
+    if (!container) return
 
+    // Guard against React StrictMode creating duplicate game instances
+    if (gameRef.current) {
+      gameRef.current.destroy(true)
+      gameRef.current = null
+    }
+
+    // Scale mode RESIZE with parent set to container.
+    // Do NOT set fixed width/height in config so Phaser derives size from the container.
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      parent: containerRef.current,
+      parent: container,
       scale: {
         mode: Phaser.Scale.RESIZE,
-        parent: containerRef.current,
-        autoCenter: Phaser.Scale.NO_CENTER, // autoCenter OFF — matches window size exactly, no letterboxing margins
-        width: '100%',
-        height: '100%',
+        parent: container,
+        autoCenter: Phaser.Scale.NO_CENTER,
       },
       backgroundColor: '#1a0a00',
       physics: { default: 'arcade', arcade: { debug: false } },
       scene: [PreloadScene, MarsScene],
     }
 
-    gameRef.current = new Phaser.Game(config)
+    const game = new Phaser.Game(config)
+    gameRef.current = game
 
-    const handleResize = () => {
-      if (!gameRef.current) return
-      const w = window.innerWidth
-      const h = window.innerHeight
-      gameRef.current.scale.resize(w, h)
+    const resizeGame = () => {
+      const g = gameRef.current
+      const c = containerRef.current
+      if (!g || !c) return
+
+      // Use container's actual dimensions; fallback to window viewport
+      const w = c.clientWidth || window.innerWidth
+      const h = c.clientHeight || window.innerHeight
+      if (w <= 0 || h <= 0) return
+
+      // Resize the canvas display and internal game dimensions
+      g.scale.resize(w, h)
+
+      // Refresh MarsScene camera, zoom, bounds, and ground coverage
+      const marsScene = g.scene.getScene('MarsScene') as MarsScene | undefined
+      if (marsScene && marsScene.scene?.isActive()) {
+        marsScene.refreshViewport(w, h)
+      }
     }
-    window.addEventListener('resize', handleResize)
-    window.addEventListener('orientationchange', handleResize)
+
+    // ResizeObserver catches container size changes (both shrinking and expanding)
+    const resizeObserver = new ResizeObserver(() => {
+      resizeGame()
+    })
+    resizeObserver.observe(container)
+
+    window.addEventListener('resize', resizeGame)
+    window.addEventListener('orientationchange', resizeGame)
 
     return () => {
-      window.removeEventListener('resize', handleResize)
-      window.removeEventListener('orientationchange', handleResize)
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', resizeGame)
+      window.removeEventListener('orientationchange', resizeGame)
       gameRef.current?.destroy(true)
       gameRef.current = null
     }
@@ -62,7 +91,15 @@ export default function GameCanvas() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 w-[100vw] h-[100dvh] overflow-hidden m-0 p-0 pointer-events-auto"
+      id="game-container"
+      className="fixed inset-0 w-[100vw] h-[100dvh] overflow-hidden m-0 p-0 pointer-events-auto"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100dvh',
+        overflow: 'hidden',
+      }}
     />
   )
 }

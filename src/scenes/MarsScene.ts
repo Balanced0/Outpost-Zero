@@ -178,11 +178,29 @@ export default class MarsScene extends Phaser.Scene {
     this.cameras.main.setZoom(clampedZoom)
   }
 
-  private handleResize(gameSize: Phaser.Structs.Size) {
-    const width = gameSize.width
-    const height = gameSize.height
-    this.cameras.main.setSize(width, height)
+  /**
+   * Refreshes camera viewport, zoom, bounds clamping, and ground coverage
+   * whenever the canvas or container resizes in either direction.
+   */
+  public refreshViewport(width?: number, height?: number) {
+    if (!this.cameras || !this.cameras.main) return
+    const w = width ?? this.scale.width
+    const h = height ?? this.scale.height
+    if (!w || !h) return
+
+    this.cameras.main.setSize(w, h)
     this.updateCameraZoom()
+    this.cameras.main.setBounds(0, 0, MAP_W, MAP_H)
+
+    // Ensure ground sprite extends far enough to cover any large viewport
+    if (this.groundTileSprite) {
+      const extraPad = Math.max(w, h, GROUND_PAD)
+      this.groundTileSprite.setSize(MAP_W + extraPad * 2, MAP_H + extraPad * 2)
+    }
+  }
+
+  private handleResize(gameSize: Phaser.Structs.Size) {
+    this.refreshViewport(gameSize.width, gameSize.height)
   }
 
   private buildGround(checkFailed: (k: string) => boolean) {

@@ -23,7 +23,7 @@ function AppInner() {
   useGameSounds()
 
   return (
-    <div className="relative w-[100vw] h-[100dvh] overflow-hidden bg-black select-none m-0 p-0">
+    <div className="fixed inset-0 w-[100vw] h-[100dvh] overflow-hidden bg-black select-none m-0 p-0">
       {/* Phaser Canvas ONLY mounted and started after "Launch mission" is pressed */}
       {isGameStarted && <GameCanvas />}
       <SunsetOverlay />

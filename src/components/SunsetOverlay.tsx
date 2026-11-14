@@ -34,7 +34,7 @@ export default function SunsetOverlay() {
   const nightOpacity = progress * (isMars ? 0.8 : 0.88)
 
   return (
-    <div className="absolute inset-0 w-full h-full pointer-events-none z-10 transition-opacity duration-300">
+    <div className="fixed inset-0 w-[100vw] h-[100dvh] pointer-events-none z-10 transition-opacity duration-300 overflow-hidden">
       {/* Warm orange Martian dust sunset glow (Mars only) */}
       {isMars && (
         <div

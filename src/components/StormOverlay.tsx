@@ -36,7 +36,7 @@ export default function StormOverlay() {
       {stormState === 'active' && (
         <>
           {/* Mild red-orange storm atmosphere flicker overlay */}
-          <div className="absolute inset-0 w-full h-full pointer-events-none z-15 overflow-hidden">
+          <div className="fixed inset-0 w-[100vw] h-[100dvh] pointer-events-none z-15 overflow-hidden">
             <div className="absolute inset-0 w-full h-full bg-red-600/25 mix-blend-color-burn animate-pulse transition-opacity duration-1000" />
             <div className="absolute inset-0 w-full h-full bg-amber-500/15 mix-blend-screen animate-pulse" />
           </div>
